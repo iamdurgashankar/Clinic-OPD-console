@@ -1,0 +1,8 @@
+{
+  "name": "Raj True Dent System",
+  "description": "A comprehensive Dental Clinic Management System featuring patient records, treatment tracking (RCT, Crown, etc.), appointment scheduling, and AI-powered insights.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
