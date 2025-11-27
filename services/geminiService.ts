@@ -6,13 +6,14 @@ const MODEL_NAME = 'gemini-2.5-flash';
 // Helper to safely initialize the AI client
 const getAIClient = (): GoogleGenAI | null => {
   let apiKey = '';
+  
   try {
-    // Defensive check for process.env to avoid ReferenceError in browser
+    // Safely access process.env to avoid ReferenceError in non-Node environments
     if (typeof process !== 'undefined' && process.env) {
-      apiKey = process.env.API_KEY || '';
+       apiKey = process.env.API_KEY || '';
     }
   } catch (e) {
-    // Ignore error if process is not defined
+    // Ignore env access errors
   }
   
   if (!apiKey) return null;

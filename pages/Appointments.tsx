@@ -5,6 +5,7 @@ import { MOCK_DOCTORS } from '../constants';
 import { Clock, Send, Calendar as CalIcon, Trash2 } from 'lucide-react';
 import { Appointment } from '../types';
 import { DatePicker } from '../components/DatePicker';
+import { TimePicker } from '../components/TimePicker';
 
 export const Appointments: React.FC = () => {
   const { appointments, patients, addAppointment, deleteAppointment } = useStore();
@@ -74,13 +75,10 @@ export const Appointments: React.FC = () => {
             </div>
             <div>
                <label className="text-sm font-medium text-slate-600">Time</label>
-               <input 
-                  type="time" 
+               <TimePicker 
+                  value={form.time || '09:00'}
+                  onChange={(t) => setForm({...form, time: t})}
                   required
-                  className={`${inputClass} cursor-pointer`}
-                  value={form.time}
-                  onChange={e => setForm({...form, time: e.target.value})}
-                  onClick={(e) => e.currentTarget.showPicker()}
                />
             </div>
             <div>

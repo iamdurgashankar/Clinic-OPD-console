@@ -63,6 +63,15 @@ export interface TreatmentRecord {
   treatmentStartDate?: string;
 }
 
+export interface PaymentTransaction {
+  id: string;
+  patientId: string;
+  date: string;
+  amount: number;
+  mode: PaymentMode;
+  notes?: string;
+}
+
 export interface Appointment {
   id: string;
   patientId: string;

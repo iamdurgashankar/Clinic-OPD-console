@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Users, Calendar, Syringe, Crown, 
   Settings, LogOut, Activity, ClipboardList, ChevronDown, 
-  ChevronRight, Stethoscope 
+  ChevronRight, Stethoscope
 } from 'lucide-react';
 import { CLINIC_NAME } from '../constants';
 
@@ -12,7 +13,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) => {
-  // State to manage expanded groups. Default 'modules' to open for better discovery.
+  // State to manage expanded groups. Only 'modules' needs to be expanded by default now.
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'modules': true
   });
@@ -22,12 +23,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
   };
 
   const menuItems = [
+    // Top Level Items
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'patients', label: 'Patient Master', icon: Users },
     { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'patients', label: 'Patient Master', icon: Users },
     { id: 'treatments', label: 'All Treatments', icon: ClipboardList }, // Unified View
     
-    // Grouped Section
+    // Clinical Modules Group
     { 
       id: 'modules', 
       label: 'Clinical Modules', 
@@ -129,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
           <span>Logout</span>
         </button>
         <div className="mt-4 text-center text-xs text-slate-400">
-          v1.1.0 | Admin Panel
+          v1.3.0 | Admin Panel
         </div>
       </div>
     </div>

@@ -1,17 +1,20 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { 
   Users, Calendar, Clock, Activity, 
   UserPlus, Search, Phone, FileText, 
-  CheckCircle, PlayCircle, AlertCircle, 
-  Stethoscope, CreditCard, ArrowRight
+  CheckCircle, AlertCircle, 
+  Stethoscope, CreditCard, ArrowRight,
+  Bell, X, Share2, Send, List
 } from 'lucide-react';
 import { AddPatientModal } from '../components/AddPatientModal';
 import { PatientProfile } from '../components/PatientProfile';
 import { PatientSearchModal } from '../components/PatientSearchModal';
 import { ReportsModal } from '../components/ReportsModal';
 import { MOCK_DOCTORS } from '../constants';
-import { Patient } from '../types';
+import { Patient, Appointment } from '../types';
+import { sendDoctorSchedule, sendPatientReminder } from '../services/whatsappService';
 
 export const Dashboard: React.FC = () => {
   const { patients, appointments, getPendingDues, addPatient, getPatientTreatments, updateAppointment, addAppointment } = useStore();
@@ -26,6 +29,8 @@ export const Dashboard: React.FC = () => {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchPurpose, setSearchPurpose] = useState<'billing' | 'appointment'>('billing');
   const [showReports, setShowReports] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+  const [showReminderModal, setShowReminderModal] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -42,8 +47,11 @@ export const Dashboard: React.FC = () => {
   // Search Logic (Defensive)
   const searchResults = searchQuery.length > 0 
     ? patients.filter(p => 
-        (p.phoneNumber || '').includes(searchQuery) || 
-        (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+        p && // Ensure p exists
+        (
+          (p.phoneNumber && p.phoneNumber.includes(searchQuery)) || 
+          (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
       )
     : [];
 
@@ -108,8 +116,45 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  // Notification Banner Logic
+  const upcomingReminders = todaysAppointments.filter(a => a.status === 'Scheduled');
+
   return (
     <div className="flex h-[calc(100vh-2rem)] flex-col gap-6">
+      
+      {/* 0. Notification Banner */}
+      {showBanner && upcomingReminders.length > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-6 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-200 text-blue-700">
+              <Bell size={16} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-blue-900">
+                Reminder Action Required
+              </p>
+              <p className="text-xs text-blue-700">
+                You have <span className="font-bold">{upcomingReminders.length} patients</span> waiting today.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowReminderModal(true)}
+              className="flex items-center gap-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-sm"
+            >
+              <List size={14} /> View All
+            </button>
+            <button 
+              onClick={() => setShowBanner(false)}
+              className="rounded p-1 text-blue-400 hover:bg-blue-100 hover:text-blue-600"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Header & Search & Stats */}
       <div className="flex flex-col gap-4">
         
@@ -265,57 +310,65 @@ export const Dashboard: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {todaysAppointments
                   .sort((a, b) => a.time.localeCompare(b.time))
-                  .map((app) => (
-                  <tr key={app.id} className={`group hover:bg-slate-50 ${app.status === 'Completed' ? 'bg-gray-50/50 opacity-75' : ''}`}>
-                    <td className="px-6 py-4 font-mono font-medium text-gray-600">
-                      {app.time}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-gray-900">{app.patientName}</div>
-                      <div className="text-xs text-gray-500">ID: {patients.find(p => p.id === app.patientId)?.serialNumber || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                       <div className="flex items-center gap-2">
-                          <span className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">{app.assignedStaff.split(' ')[0]}...</span>
-                       </div>
-                       <div className="mt-1 text-xs text-gray-500">{app.purpose}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {app.status === 'Scheduled' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                          <Clock size={12} /> Waiting
-                        </span>
-                      )}
-                      {app.status === 'Completed' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                          <CheckCircle size={12} /> Done
-                        </span>
-                      )}
-                      {app.status === 'Cancelled' && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                          Cancelled
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                       {app.status === 'Scheduled' ? (
-                         <div className="flex justify-end gap-2">
-                           <button 
-                            onClick={() => updateStatus(app.id, 'Completed')}
-                            className="flex items-center gap-1 rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
-                           >
-                             <CheckCircle size={14} /> Finish
-                           </button>
-                           <button className="flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
-                             <PlayCircle size={14} /> Call
-                           </button>
-                         </div>
-                       ) : (
-                         <span className="text-xs text-gray-400">-</span>
-                       )}
-                    </td>
-                  </tr>
-                ))}
+                  .map((app) => {
+                    const patient = patients.find(p => p.id === app.patientId);
+
+                    return (
+                      <tr key={app.id} className={`group hover:bg-slate-50 ${app.status === 'Completed' ? 'bg-gray-50/50 opacity-75' : ''}`}>
+                        <td className="px-6 py-4 font-mono font-medium text-gray-600">
+                          {app.time}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-gray-900">{app.patientName}</div>
+                          <div className="text-xs text-gray-500">ID: {patient?.serialNumber || 'N/A'}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                              <span className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">{app.assignedStaff.split(' ')[0]}...</span>
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">{app.purpose}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {app.status === 'Scheduled' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                              <Clock size={12} /> Waiting
+                            </span>
+                          )}
+                          {app.status === 'Completed' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                              <CheckCircle size={12} /> Done
+                            </span>
+                          )}
+                          {app.status === 'Cancelled' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                              Cancelled
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {app.status === 'Scheduled' ? (
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => patient?.phoneNumber && sendPatientReminder(app, patient.phoneNumber)}
+                                className="flex items-center gap-1 rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+                                title="Send WhatsApp Reminder"
+                              >
+                                <Send size={14} /> Send Reminder
+                              </button>
+                              <button 
+                                onClick={() => updateStatus(app.id, 'Completed')}
+                                className="flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                              >
+                                <CheckCircle size={14} /> Finish
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                })}
                 {todaysAppointments.length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-gray-400">
@@ -336,9 +389,23 @@ export const Dashboard: React.FC = () => {
           
           {/* 1. Available Doctors */}
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
-               <Stethoscope size={16} /> Doctor Availability
-             </h3>
+             <div className="mb-3 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+                  <Stethoscope size={16} /> Doctor Availability
+                </h3>
+                <button 
+                  onClick={() => {
+                    // Send schedule for the first doctor or prompt
+                    const docName = MOCK_DOCTORS[0]; 
+                    const docApps = todaysAppointments.filter(a => a.assignedStaff === docName);
+                    sendDoctorSchedule(docName, docApps);
+                  }}
+                  className="rounded bg-teal-50 p-1 text-teal-600 hover:bg-teal-100"
+                  title="Share Schedule via WhatsApp"
+                >
+                  <Share2 size={16} />
+                </button>
+             </div>
              <ul className="space-y-3">
                {MOCK_DOCTORS.map((doc, idx) => (
                  <li key={idx} className="flex items-center justify-between">
@@ -391,6 +458,58 @@ export const Dashboard: React.FC = () => {
           initialTab={profileInitialTab}
           initialAction={profileInitialAction}
         />
+      )}
+
+      {/* Reminder List Modal */}
+      {showReminderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                <Bell size={20} className="text-blue-600" /> Pending Reminders
+              </h3>
+              <button onClick={() => setShowReminderModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+              The following patients have appointments scheduled for today but haven't been marked as 'Completed' or 'Done'.
+            </div>
+
+            <div className="max-h-[350px] overflow-y-auto space-y-3">
+              {upcomingReminders.length > 0 ? upcomingReminders.map(app => {
+                 const patient = patients.find(p => p.id === app.patientId);
+                 return (
+                   <div key={app.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
+                     <div className="flex items-center gap-3">
+                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-bold">
+                         {app.time}
+                       </div>
+                       <div>
+                         <div className="font-bold text-gray-900">{app.patientName}</div>
+                         <div className="flex items-center gap-1 text-xs text-gray-500">
+                           <Phone size={10} /> {patient?.phoneNumber}
+                         </div>
+                       </div>
+                     </div>
+                     <button 
+                       onClick={() => patient?.phoneNumber && sendPatientReminder(app, patient.phoneNumber)}
+                       className="flex items-center gap-1 rounded bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700 hover:bg-green-100 border border-green-200"
+                     >
+                       <Send size={14} /> Send
+                     </button>
+                   </div>
+                 );
+              }) : (
+                <div className="py-8 text-center text-gray-400">
+                  <CheckCircle size={32} className="mx-auto mb-2 opacity-20" />
+                  <p>All clear! No pending reminders.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* New Functional Modals */}

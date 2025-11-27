@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Patient } from '../types';
@@ -11,11 +12,20 @@ interface AddPatientModalProps {
   initialData?: Patient;
 }
 
+// Helper to get local YYYY-MM-DD
+const getTodayString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
   const [formData, setFormData] = useState<Partial<Patient>>({
     sex: 'Male',
     age: 18,
-    createdAt: new Date().toISOString().split('T')[0] // Default to today
+    createdAt: getTodayString()
   });
   
   const [selectedDoctor, setSelectedDoctor] = useState(MOCK_DOCTORS[0]);
@@ -32,7 +42,7 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClos
           name: '', 
           phoneNumber: '', 
           address: '',
-          createdAt: new Date().toISOString().split('T')[0]
+          createdAt: getTodayString()
         });
         setSelectedDoctor(MOCK_DOCTORS[0]);
       }

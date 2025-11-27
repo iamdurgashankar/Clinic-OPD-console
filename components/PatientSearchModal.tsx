@@ -19,9 +19,12 @@ export const PatientSearchModal: React.FC<PatientSearchModalProps> = ({ isOpen, 
   // Defensive filtering to prevent "Uncaught TypeError: undefined is not an object"
   const results = query.length > 0
     ? patients.filter(p => 
-        (p.name || '').toLowerCase().includes(query.toLowerCase()) || 
-        (p.phoneNumber || '').includes(query) || 
-        (p.serialNumber || '').toLowerCase().includes(query.toLowerCase())
+        p && 
+        (
+          (p.name || '').toLowerCase().includes(query.toLowerCase()) || 
+          (p.phoneNumber || '').includes(query) || 
+          (p.serialNumber || '').toLowerCase().includes(query.toLowerCase())
+        )
       )
     : [];
 

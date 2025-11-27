@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { TreatmentType, LabStatus, TreatmentRecord } from '../types';
 import { 
   Plus, Filter, CheckCircle, 
   FileText, Droplet, Layers, 
-  Palette, Hash, Activity, Scissors 
+  Palette, Hash, Activity, Scissors, Printer
 } from 'lucide-react';
 import { DatePicker } from '../components/DatePicker';
 
@@ -121,14 +122,122 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
       updates.capReceivedDate = today;
     } else if (nextStatus === LabStatus.FIXED) {
       updates.capFixedDate = today;
-    } else if (nextStatus === LabStatus.PENDING) {
-      // Optional: Reset dates if cycling back to start, or keep history
-      // updates.capSendingDate = undefined;
-      // updates.capReceivedDate = undefined;
-      // updates.capFixedDate = undefined;
     }
 
     updateTreatment({ ...t, ...updates });
+  };
+
+  const handlePrintReceipt = (t: TreatmentRecord) => {
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (!printWindow) return;
+
+    // Get specific details string based on type
+    let specifics = '';
+    if (t.type === TreatmentType.RCT) {
+        if (t.rctFileTypes) specifics += `<p><strong>Files Used:</strong> ${t.rctFileTypes}</p>`;
+        if (t.rctIrrigation) specifics += `<p><strong>Irrigation:</strong> ${t.rctIrrigation}</p>`;
+    } else if (t.type === TreatmentType.CROWN) {
+        if (t.crownMaterial) specifics += `<p><strong>Material:</strong> ${t.crownMaterial}</p>`;
+        if (t.crownShade) specifics += `<p><strong>Shade:</strong> ${t.crownShade}</p>`;
+    } else if (t.type === TreatmentType.ORTHODONTICS) {
+        if (t.orthoBracketSystem) specifics += `<p><strong>Bracket System:</strong> ${t.orthoBracketSystem}</p>`;
+        if (t.orthoWireType) specifics += `<p><strong>Wire:</strong> ${t.orthoWireType}</p>`;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Receipt #${t.id}</title>
+          <style>
+            body { font-family: 'Helvetica', sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { margin: 0; color: #0f766e; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+            .header p { margin: 5px 0; color: #666; font-size: 14px; }
+            
+            .receipt-info { display: flex; justify-content: space-between; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; }
+            .info-block h3 { font-size: 11px; text-transform: uppercase; color: #64748b; margin-bottom: 5px; letter-spacing: 0.5px; }
+            .info-block p { font-size: 15px; font-weight: bold; margin: 0; color: #1e293b; }
+
+            .details-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
+            .details-row { display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 12px; }
+            .details-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+            
+            .financials { display: flex; justify-content: flex-end; }
+            .financials table { width: 300px; border-collapse: collapse; }
+            .financials td { padding: 8px 0; }
+            .financials .label { text-align: left; color: #64748b; font-size: 14px; }
+            .financials .value { text-align: right; font-weight: bold; font-size: 14px; }
+            .total { border-top: 2px solid #1e293b; margin-top: 10px; }
+            .total td { padding-top: 10px; font-size: 18px; }
+
+            .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Raj True Dent</h1>
+            <p>Advanced Dental Care Center</p>
+            <p>Receipt Generated: ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div class="receipt-info">
+            <div class="info-block">
+              <h3>Patient Name</h3>
+              <p>${t.patientName}</p>
+            </div>
+            <div class="info-block">
+              <h3>Treatment Date</h3>
+              <p>${t.date}</p>
+            </div>
+            <div class="info-block">
+              <h3>Receipt ID</h3>
+              <p>#${t.id.slice(-6)}</p>
+            </div>
+          </div>
+
+          <div class="details-box">
+             <div class="details-row">
+               <span><strong>Treatment Type:</strong> ${t.type}</span>
+             </div>
+             <div class="details-row">
+               <span><strong>Description:</strong> ${t.description}</span>
+             </div>
+             ${specifics ? `<div style="margin-top:15px; font-size: 13px; color: #475569; background: #f8fafc; padding: 10px; border-radius: 6px;">${specifics}</div>` : ''}
+          </div>
+
+          <div class="financials">
+            <table>
+              <tr>
+                <td class="label">Total Amount</td>
+                <td class="value">₹${t.amount}</td>
+              </tr>
+              <tr>
+                <td class="label">Amount Paid</td>
+                <td class="value">₹${t.paid}</td>
+              </tr>
+              <tr class="total">
+                <td class="label">Balance Due</td>
+                <td class="value" style="color: ${t.due > 0 ? '#ef4444' : '#10b981'}">₹${t.due}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="footer">
+            <p>Thank you for visiting Raj True Dent.</p>
+            <p>For appointments, call: +91 98765 43210</p>
+            <p>Computer Generated Receipt</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
   };
 
   return (
@@ -254,26 +363,38 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
                   <td className="px-6 py-4">
                     {t.type === TreatmentType.CROWN ? (
                       <div className="flex flex-col items-start gap-1">
-                        <button 
-                          onClick={() => cycleLabStatus(t)}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80 ${
+                        <select 
+                          value={t.labStatus || LabStatus.PENDING}
+                          onChange={(e) => {
+                             const newStatus = e.target.value as LabStatus;
+                             const today = new Date().toISOString().split('T')[0];
+                             let updates: Partial<TreatmentRecord> = { labStatus: newStatus };
+                             if (newStatus === LabStatus.SENT) updates.capSendingDate = today;
+                             if (newStatus === LabStatus.RECEIVED) updates.capReceivedDate = today;
+                             if (newStatus === LabStatus.FIXED) updates.capFixedDate = today;
+                             updateTreatment({ ...t, ...updates });
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors cursor-pointer border-none outline-none ${
                             t.labStatus === 'Fixed' ? 'bg-green-100 text-green-700' :
                             t.labStatus === 'Sent to Lab' ? 'bg-blue-100 text-blue-700' :
                             t.labStatus === 'Received' ? 'bg-purple-100 text-purple-700' :
                             'bg-yellow-100 text-yellow-700'
                           }`}
                         >
-                          {t.labStatus}
-                        </button>
+                          <option value={LabStatus.PENDING}>Pending</option>
+                          <option value={LabStatus.SENT}>Sent to Lab</option>
+                          <option value={LabStatus.RECEIVED}>Received</option>
+                          <option value={LabStatus.FIXED}>Fixed</option>
+                        </select>
                         {/* Auto-display relevant date based on status */}
                         {t.labStatus === LabStatus.SENT && t.capSendingDate && (
-                          <span className="text-[10px] text-gray-500">Sent: {t.capSendingDate}</span>
+                          <span className="text-[10px] text-gray-500 ml-1">Sent: {t.capSendingDate}</span>
                         )}
                         {t.labStatus === LabStatus.RECEIVED && t.capReceivedDate && (
-                          <span className="text-[10px] text-gray-500">Recv: {t.capReceivedDate}</span>
+                          <span className="text-[10px] text-gray-500 ml-1">Recv: {t.capReceivedDate}</span>
                         )}
                         {t.labStatus === LabStatus.FIXED && t.capFixedDate && (
-                          <span className="text-[10px] text-gray-500">Fixed: {t.capFixedDate}</span>
+                          <span className="text-[10px] text-gray-500 ml-1">Fixed: {t.capFixedDate}</span>
                         )}
                       </div>
                     ) : (
@@ -291,7 +412,12 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
                   )}
                 </td>
                 <td className="px-6 py-4 text-right">
-                   <button className="text-xs font-medium text-teal-600 hover:text-teal-800 hover:underline">View Receipt</button>
+                   <button 
+                    onClick={() => handlePrintReceipt(t)}
+                    className="flex items-center justify-end gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 hover:underline w-full"
+                   >
+                     <Printer size={14} /> View Receipt
+                   </button>
                 </td>
               </tr>
             ))}
