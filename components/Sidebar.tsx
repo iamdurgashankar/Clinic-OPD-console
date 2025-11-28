@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, Users, Calendar, Syringe, Crown, 
-  Settings, LogOut, Activity, ClipboardList, ChevronDown, 
+import {
+  LayoutDashboard, Users, Calendar, Syringe, Crown,
+  Settings, LogOut, Activity, ClipboardList, ChevronDown,
   ChevronRight, Stethoscope
 } from 'lucide-react';
 import { CLINIC_NAME } from '../constants';
@@ -10,9 +10,10 @@ import { CLINIC_NAME } from '../constants';
 interface SidebarProps {
   currentRoute: string;
   onNavigate: (route: string) => void;
+  onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate, onLogout }) => {
   // State to manage expanded groups. Only 'modules' needs to be expanded by default now.
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'modules': true
@@ -28,11 +29,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'patients', label: 'Patient Master', icon: Users },
     { id: 'treatments', label: 'All Treatments', icon: ClipboardList }, // Unified View
-    
+
     // Clinical Modules Group
-    { 
-      id: 'modules', 
-      label: 'Clinical Modules', 
+    {
+      id: 'modules',
+      label: 'Clinical Modules',
       icon: Stethoscope,
       type: 'group',
       children: [
@@ -63,9 +64,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
                 <li key={item.id} className="space-y-1">
                   <button
                     onClick={() => toggleGroup(item.id)}
-                    className={`flex w-full items-center justify-between rounded-xl px-4 py-3 transition-colors ${
-                      hasActiveChild ? 'bg-teal-50 text-teal-700 font-medium' : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
-                    }`}
+                    className={`flex w-full items-center justify-between rounded-xl px-4 py-3 transition-colors ${hasActiveChild ? 'bg-teal-50 text-teal-700 font-medium' : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <Icon size={20} className={hasActiveChild ? 'text-teal-600' : 'text-slate-400'} />
@@ -73,28 +73,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
                     </div>
                     {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
-                  
+
                   {/* Children Items */}
                   {isExpanded && (
                     <ul className="ml-4 space-y-1 border-l-2 border-gray-100 pl-2 transition-all">
                       {item.children.map((child: any) => {
-                         const ChildIcon = child.icon;
-                         const isChildActive = currentRoute === child.id;
-                         return (
-                           <li key={child.id}>
-                             <button
-                               onClick={() => onNavigate(child.id)}
-                               className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm transition-colors ${
-                                 isChildActive
-                                   ? 'bg-teal-50 text-teal-700 font-semibold' 
-                                   : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'
-                               }`}
-                             >
-                               <ChildIcon size={18} className={isChildActive ? 'text-teal-600' : 'text-slate-400'} />
-                               <span>{child.label}</span>
-                             </button>
-                           </li>
-                         );
+                        const ChildIcon = child.icon;
+                        const isChildActive = currentRoute === child.id;
+                        return (
+                          <li key={child.id}>
+                            <button
+                              onClick={() => onNavigate(child.id)}
+                              className={`flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm transition-colors ${isChildActive
+                                  ? 'bg-teal-50 text-teal-700 font-semibold'
+                                  : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'
+                                }`}
+                            >
+                              <ChildIcon size={18} className={isChildActive ? 'text-teal-600' : 'text-slate-400'} />
+                              <span>{child.label}</span>
+                            </button>
+                          </li>
+                        );
                       })}
                     </ul>
                   )}
@@ -105,16 +104,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
             // Render Standard Item
             const Icon = item.icon;
             const isActive = currentRoute === item.id;
-            
+
             return (
               <li key={item.id}>
                 <button
                   onClick={() => onNavigate(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-colors ${
-                    isActive 
-                      ? 'bg-teal-600 text-white shadow-lg shadow-teal-500/30' 
+                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-colors ${isActive
+                      ? 'bg-teal-600 text-white shadow-lg shadow-teal-500/30'
                       : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   <Icon size={20} className={isActive ? 'text-teal-100' : 'text-slate-400'} />
                   <span className="font-medium">{item.label}</span>
@@ -126,7 +124,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate }) =>
       </nav>
 
       <div className="border-t border-gray-100 p-4">
-        <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-red-500 hover:bg-red-50 transition-colors">
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-red-500 hover:bg-red-50 transition-colors"
+        >
           <LogOut size={20} />
           <span>Logout</span>
         </button>
