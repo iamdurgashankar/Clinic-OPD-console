@@ -1,22 +1,30 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Patient, TreatmentRecord, Appointment, TreatmentType, LabStatus, PaymentTransaction } from '../types';
+import { Patient, TreatmentRecord, TreatmentType, LabStatus, Appointment, PaymentMode, Staff, User, ClinicNotification, PaymentTransaction } from '../types';
+import { api } from '../services/api';
 
 interface StoreContextType {
   patients: Patient[];
   treatments: TreatmentRecord[];
   appointments: Appointment[];
   payments: PaymentTransaction[];
-  addPatient: (p: Patient) => void;
+  staff: Staff[];
+  notifications: ClinicNotification[];
+  addPatient: (p: Patient) => Promise<string>;
   updatePatient: (p: Patient) => void;
   deletePatient: (id: string) => void;
-  addTreatment: (t: TreatmentRecord) => void;
+  addTreatment: (t: TreatmentRecord) => Promise<string>;
   updateTreatment: (t: TreatmentRecord) => void;
-  addAppointment: (a: Appointment) => void;
+  addAppointment: (a: Appointment) => Promise<string>;
   updateAppointment: (a: Appointment) => void;
   deleteAppointment: (id: string) => void;
-  addPayment: (p: PaymentTransaction) => void;
+  addPayment: (p: PaymentTransaction) => Promise<string>;
+  addStaff: (s: Staff) => void;
+  updateStaff: (s: Staff) => void;
+  deleteStaff: (id: string) => void;
   getPatientTreatments: (patientId: string) => TreatmentRecord[];
   getPendingDues: () => number;
+  markNotificationRead: (id: string) => void;
+  addNotification: (userId: string | undefined, message: string, type: 'info' | 'reminder' | 'urgent') => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -39,90 +47,232 @@ const safeParse = <T,>(key: string, fallback: T): T => {
 };
 
 export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
-  // Initialize with safe parsing
-  const [patients, setPatients] = useState<Patient[]>(() => safeParse('rtd_patients', [
-    { id: '1', serialNumber: 'RTD-001', name: 'John Doe', age: 34, sex: 'Male', phoneNumber: '9876543210', address: '123 Main St', createdAt: new Date().toISOString() },
-    { id: '2', serialNumber: 'RTD-002', name: 'Jane Smith', age: 28, sex: 'Female', phoneNumber: '9876543211', address: '456 Park Ave', createdAt: new Date().toISOString() }
-  ]));
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [treatments, setTreatments] = useState<TreatmentRecord[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [payments, setPayments] = useState<PaymentTransaction[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [notifications, setNotifications] = useState<ClinicNotification[]>([]);
 
-  const [treatments, setTreatments] = useState<TreatmentRecord[]>(() => safeParse('rtd_treatments', [
-    { id: '101', patientId: '1', patientName: 'John Doe', type: TreatmentType.RCT, date: '2023-10-15', description: 'RCT on molar 26', amount: 5000, paid: 3000, due: 2000 },
-    { id: '102', patientId: '2', patientName: 'Jane Smith', type: TreatmentType.CROWN, date: '2023-10-20', description: 'Ceramic Crown', amount: 8000, paid: 8000, due: 0, labStatus: LabStatus.SENT, capSendingDate: '2023-10-21' }
-  ]));
+  // Fetch initial data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [p, t, a, pay, s, n] = await Promise.all([
+          api.getPatients(),
+          api.getTreatments(),
+          api.getAppointments(),
+          api.getPayments(),
+          api.getStaff(),
+          api.getNotifications()
+        ]);
+        setPatients(p);
+        setTreatments(t);
+        setAppointments(a);
+        setPayments(pay);
+        setStaff(s);
+        setNotifications(n);
+      } catch (error) {
+        console.error("Failed to fetch data", error);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const [appointments, setAppointments] = useState<Appointment[]>(() => safeParse('rtd_appointments', [
-    { id: 'a1', patientId: '1', patientName: 'John Doe', date: new Date().toISOString().split('T')[0], time: '10:00', purpose: 'RCT Sitting 2', assignedStaff: 'Dr. Raj', status: 'Scheduled' }
-  ]));
-
-  const [payments, setPayments] = useState<PaymentTransaction[]>(() => safeParse('rtd_payments', []));
-
-  useEffect(() => { localStorage.setItem('rtd_patients', JSON.stringify(patients)); }, [patients]);
-  useEffect(() => { localStorage.setItem('rtd_treatments', JSON.stringify(treatments)); }, [treatments]);
-  useEffect(() => { localStorage.setItem('rtd_appointments', JSON.stringify(appointments)); }, [appointments]);
-  useEffect(() => { localStorage.setItem('rtd_payments', JSON.stringify(payments)); }, [payments]);
-
-  const addPatient = (p: Patient) => setPatients(prev => [...prev, p]);
-  const updatePatient = (p: Patient) => setPatients(prev => prev.map(x => x.id === p.id ? p : x));
-  const deletePatient = (id: string) => {
-    setPatients(prev => prev.filter(x => x.id !== id));
-    setTreatments(prev => prev.filter(x => x.patientId !== id));
-    setAppointments(prev => prev.filter(x => x.patientId !== id));
-    setPayments(prev => prev.filter(x => x.patientId !== id));
+  const addPatient = async (p: Patient): Promise<string> => {
+    try {
+      const res = await api.createPatient(p);
+      setPatients(prev => [...prev, { ...p, id: res.id }]);
+      return res.id;
+    } catch (error) {
+      console.error("Failed to add patient", error);
+      return '';
+    }
   };
 
-  const addTreatment = (t: TreatmentRecord) => setTreatments(prev => [...prev, t]);
-  const updateTreatment = (t: TreatmentRecord) => setTreatments(prev => prev.map(x => x.id === t.id ? t : x));
+  const updatePatient = async (p: Patient) => {
+    try {
+      await api.updatePatient(p);
+      setPatients(prev => prev.map(x => x.id === p.id ? p : x));
+    } catch (error) {
+      console.error("Failed to update patient", error);
+    }
+  };
 
-  const addAppointment = (a: Appointment) => setAppointments(prev => [...prev, a]);
-  const updateAppointment = (a: Appointment) => setAppointments(prev => prev.map(x => x.id === a.id ? a : x));
-  const deleteAppointment = (id: string) => setAppointments(prev => prev.filter(x => x.id !== id));
+  const deletePatient = async (id: string) => {
+    try {
+      await api.deletePatient(id);
+      setPatients(prev => prev.filter(x => x.id !== id));
+      setTreatments(prev => prev.filter(x => x.patientId !== id));
+      setAppointments(prev => prev.filter(x => x.patientId !== id));
+      setPayments(prev => prev.filter(x => x.patientId !== id));
+    } catch (error) {
+      console.error("Failed to delete patient", error);
+    }
+  };
 
-  const addPayment = (p: PaymentTransaction) => {
-    setPayments(prev => [...prev, p]);
-    
-    // Auto-allocation logic
-    let remaining = p.amount;
-    if (remaining <= 0) return;
+  const addTreatment = async (t: TreatmentRecord): Promise<string> => {
+    try {
+      const res = await api.createTreatment(t);
+      setTreatments(prev => [...prev, { ...t, id: res.id }]);
+      return res.id;
+    } catch (error) {
+      console.error("Failed to add treatment", error);
+      return '';
+    }
+  };
 
-    const patientTreatments = treatments
-      .filter(t => t.patientId === p.patientId && t.due > 0)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const updateTreatment = async (t: TreatmentRecord) => {
+    try {
+      await api.updateTreatment(t);
+      setTreatments(prev => prev.map(x => x.id === t.id ? t : x));
+    } catch (error) {
+      console.error("Failed to update treatment", error);
+    }
+  };
 
-    if (patientTreatments.length > 0) {
-      const updatedTreatments = [...treatments];
-      
-      for (const treatment of patientTreatments) {
-        if (remaining <= 0) break;
-        
-        const index = updatedTreatments.findIndex(ut => ut.id === treatment.id);
-        if (index !== -1) {
-          const record = updatedTreatments[index];
-          const deduct = Math.min(record.due, remaining);
-          
-          updatedTreatments[index] = {
-            ...record,
-            paid: record.paid + deduct,
-            due: record.due - deduct
-          };
-          
-          remaining -= deduct;
+  const addAppointment = async (a: Appointment): Promise<string> => {
+    try {
+      const res = await api.createAppointment(a);
+      setAppointments(prev => [...prev, { ...a, id: res.id }]);
+      return res.id;
+    } catch (error) {
+      console.error("Failed to add appointment", error);
+      return '';
+    }
+  };
+
+  const updateAppointment = async (a: Appointment) => {
+    try {
+      await api.updateAppointment(a);
+      setAppointments(prev => prev.map(x => x.id === a.id ? a : x));
+    } catch (error) {
+      console.error("Failed to update appointment", error);
+    }
+  };
+
+  const deleteAppointment = async (id: string) => {
+    try {
+      await api.deleteAppointment(id);
+      setAppointments(prev => prev.filter(x => x.id !== id));
+    } catch (error) {
+      console.error("Failed to delete appointment", error);
+    }
+  };
+
+  const addPayment = async (p: PaymentTransaction): Promise<string> => {
+    try {
+      const res = await api.createPayment(p);
+      setPayments(prev => [...prev, { ...p, id: res.id }]);
+
+      // Auto-allocation logic
+      let remaining = p.amount;
+      if (remaining <= 0) return res.id;
+
+      const patientTreatments = treatments
+        .filter(t => t.patientId === p.patientId && t.due > 0)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      if (patientTreatments.length > 0) {
+        const updatedTreatments = [...treatments];
+
+        for (const treatment of patientTreatments) {
+          if (remaining <= 0) break;
+
+          const index = updatedTreatments.findIndex(ut => ut.id === treatment.id);
+          if (index !== -1) {
+            const record = updatedTreatments[index];
+            const deduct = Math.min(record.due, remaining);
+
+            const newRecord = {
+              ...record,
+              paid: record.paid + deduct,
+              due: record.due - deduct
+            };
+
+            // Update in backend
+            await api.updateTreatment(newRecord);
+
+            updatedTreatments[index] = newRecord;
+            remaining -= deduct;
+          }
         }
+        setTreatments(updatedTreatments);
       }
-      setTreatments(updatedTreatments);
+      return res.id;
+    } catch (error) {
+      console.error("Failed to add payment", error);
+      return '';
+    }
+  };
+
+  const addStaff = async (s: Staff) => {
+    try {
+      const res = await api.createStaff(s);
+      setStaff(prev => [...prev, { ...s, id: res.id }]);
+    } catch (error) {
+      console.error("Failed to add staff", error);
+    }
+  };
+
+  const updateStaff = async (s: Staff) => {
+    try {
+      await api.updateStaff(s);
+      setStaff(prev => prev.map(x => x.id === s.id ? s : x));
+    } catch (error) {
+      console.error("Failed to update staff", error);
+    }
+  };
+
+  const deleteStaff = async (id: string) => {
+    try {
+      await api.deleteStaff(id);
+      setStaff(prev => prev.filter(x => x.id !== id));
+    } catch (error) {
+      console.error("Failed to delete staff", error);
     }
   };
 
   const getPatientTreatments = (id: string) => treatments.filter(t => t.patientId === id);
   const getPendingDues = () => treatments.reduce((acc, curr) => acc + curr.due, 0);
 
+  const markNotificationRead = async (id: string) => {
+    try {
+      await api.markNotificationRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (error) {
+      console.error("Failed to mark notification read", error);
+    }
+  };
+
+  const addNotification = async (userId: string | undefined, message: string, type: 'info' | 'reminder' | 'urgent') => {
+    try {
+      const res = await api.createNotification({ userId, message, type });
+      setNotifications(prev => [{
+        id: res.id,
+        userId,
+        message,
+        type,
+        isRead: false,
+        createdAt: new Date().toISOString()
+      }, ...prev] as ClinicNotification[]);
+    } catch (error) {
+      console.error("Failed to add notification", error);
+    }
+  };
+
   return (
     <StoreContext.Provider value={{
-      patients, treatments, appointments, payments,
+      patients, treatments, appointments, payments, staff, notifications,
       addPatient, updatePatient, deletePatient,
       addTreatment, updateTreatment,
       addAppointment, updateAppointment, deleteAppointment,
       addPayment,
-      getPatientTreatments, getPendingDues
+      addStaff, updateStaff, deleteStaff,
+      getPatientTreatments,
+      getPendingDues,
+      markNotificationRead,
+      addNotification
     }}>
       {children}
     </StoreContext.Provider>

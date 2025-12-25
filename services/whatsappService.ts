@@ -11,7 +11,7 @@ export const openWhatsApp = (phoneNumber: string, message: string) => {
 
   // Basic cleanup to ensure number format (assuming India +91 if not specified, or just strip chars)
   let cleanNumber = phoneNumber.replace(/\D/g, '');
-  
+
   // If number is 10 digits, assume default country code (e.g., 91 for India). 
   // You can change '91' to your region's code.
   if (cleanNumber.length === 10) {
@@ -27,6 +27,11 @@ export const sendPatientReminder = (appointment: Appointment, patientPhone: stri
   openWhatsApp(patientPhone, message);
 };
 
+export const sendTreatmentReminder = (patientName: string, patientPhone: string, treatmentType: string, followUpDate: string) => {
+  const message = `Hello ${patientName}, this is Raj True Dent. You have a follow-up scheduled for your ${treatmentType} treatment on ${followUpDate}. Please let us know if you can make it. Thank you!`;
+  openWhatsApp(patientPhone, message);
+};
+
 export const sendDoctorSchedule = (doctorName: string, appointments: Appointment[]) => {
   if (appointments.length === 0) {
     alert("No appointments to send.");
@@ -34,15 +39,15 @@ export const sendDoctorSchedule = (doctorName: string, appointments: Appointment
   }
 
   let message = `*Daily Schedule for ${doctorName}*\nDate: ${appointments[0].date}\n\n`;
-  
+
   appointments
     .sort((a, b) => a.time.localeCompare(b.time))
     .forEach((app, index) => {
-    message += `${index + 1}. *${app.time}* - ${app.patientName} (${app.purpose})\n`;
-  });
+      message += `${index + 1}. *${app.time}* - ${app.patientName} (${app.purpose})\n`;
+    });
 
   message += `\nTotal Patients: ${appointments.length}`;
-  
+
   // In a real app, you'd store the doctor's phone number. 
   // For now, we prompt or use a placeholder.
   const doctorPhone = prompt("Enter Doctor's WhatsApp Number:", "");

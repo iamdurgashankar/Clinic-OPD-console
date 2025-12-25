@@ -20,6 +20,21 @@ export enum LabStatus {
   FIXED = 'Fixed'
 }
 
+export interface Staff {
+  id: string;
+  name: string;
+  role: 'Doctor' | 'Nurse';
+  specialization?: string;
+  active: boolean;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'admin' | 'staff';
+  displayName?: string;
+}
+
 export interface Patient {
   id: string;
   serialNumber: string;
@@ -42,7 +57,7 @@ export interface TreatmentRecord {
   amount: number;
   paid: number;
   due: number;
-  
+
   // Specific fields for Crown/Lab
   labStatus?: LabStatus;
   capSendingDate?: string;
@@ -61,6 +76,9 @@ export interface TreatmentRecord {
   orthoBracketSystem?: string; // New: e.g. MBT, Roth
   orthoWireType?: string;      // New: e.g. NiTi 014
   treatmentStartDate?: string;
+  doctorName?: string; // New: Assigned Doctor
+  nextFollowUp?: string; // New: YYYY-MM-DD
+  reminderSent?: boolean; // New
 }
 
 export interface PaymentTransaction {
@@ -81,6 +99,7 @@ export interface Appointment {
   purpose: string;
   assignedStaff: string;
   status: 'Scheduled' | 'Completed' | 'Cancelled';
+  reminderSent?: boolean; // New
 }
 
 export interface DashboardStats {
@@ -88,4 +107,13 @@ export interface DashboardStats {
   totalPatients: number;
   pendingDues: number;
   labDeliveriesPending: number;
+}
+
+export interface ClinicNotification {
+  id: string;
+  userId?: string;
+  message: string;
+  type: 'info' | 'reminder' | 'urgent';
+  isRead: boolean;
+  createdAt: string;
 }

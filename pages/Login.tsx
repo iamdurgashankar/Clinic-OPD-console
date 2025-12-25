@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Lock, User, ArrowRight, Stethoscope } from 'lucide-react';
 import { CLINIC_NAME } from '../constants';
+import { User as UserType } from '../types';
 import toast from 'react-hot-toast';
 
 interface LoginProps {
-    onLogin: () => void;
+    onLogin: (user: UserType) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -12,20 +13,45 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
-        // Simulate network delay for a premium feel
-        setTimeout(() => {
-            if (username === 'admin' && password === 'admin') {
-                toast.success('Welcome back, Dr. Raj!');
-                onLogin();
+        try {
+            // Try backend login first
+            const response = await fetch('http://localhost:8000/api/login.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                toast.success(`Welcome back, ${data.user.username}!`);
+                onLogin(data.user);
             } else {
-                toast.error('Invalid credentials. Please try again.');
-                setIsLoading(false);
+                // If backend returns specific error (like invalid creds), show it
+                if (response.status === 401) {
+                    toast.error('Invalid credentials. Please try again.');
+                    setIsLoading(false);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
             }
-        }, 800);
+        } catch (error) {
+            console.log('Backend unreachable or error, falling back to local demo mode');
+            // Fallback for demo/offline mode
+            setTimeout(() => {
+                if (username === 'admin' && password === 'admin') {
+                    toast.success('Welcome back, admin! (Offline Mode)');
+                    onLogin({ id: 'demo-admin', username: 'admin', role: 'admin', displayName: 'admin' });
+                } else {
+                    toast.error('Invalid credentials (Offline Mode).');
+                    setIsLoading(false);
+                }
+            }, 800);
+        }
     };
 
     return (
@@ -37,10 +63,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 p-8 shadow-2xl shadow-teal-200/50 border border-teal-400/20">
                 <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20 shadow-lg shadow-black/10 backdrop-blur-sm">
-                        <Stethoscope className="h-8 w-8 text-white" />
+                    <div className="mx-auto mb-6 flex items-center justify-center">
+                        <img
+                            src="https://rajtruedent.com/wp-content/uploads/2023/07/Raj_true_Dent__4_-removebg-preview-e1688891234126.png"
+                            alt={CLINIC_NAME}
+                            className="h-32 w-auto object-contain drop-shadow-lg"
+                        />
                     </div>
-                    <h1 className="text-3xl font-bold text-white">{CLINIC_NAME}</h1>
+
                     <p className="mt-2 text-teal-100">Secure Access Portal</p>
                 </div>
 
