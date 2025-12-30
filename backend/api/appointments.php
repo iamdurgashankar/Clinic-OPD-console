@@ -1,7 +1,7 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -82,22 +82,31 @@ if ($method === 'GET') {
     }
 
     try {
-        $sql = "UPDATE appointments SET date = ?, time = ?, purpose = ?, assigned_staff = ?, status = ?, reminder_sent = ? WHERE id = ?";
+        $sql = "UPDATE appointments SET 
+                date = ?, 
+                time = ?, 
+                purpose = ?, 
+                assigned_staff = ?, 
+                status = ?, 
+                reminder_sent = ?,
+                patient_id = ?
+                WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            $data['date'],
-            $data['time'],
+            $data['date'] ?? null,
+            $data['time'] ?? null,
             $data['purpose'] ?? '',
             $data['assignedStaff'] ?? '',
             $data['status'] ?? 'Scheduled',
-            $data['reminderSent'] ?? 0,
+            isset($data['reminderSent']) ? ($data['reminderSent'] ? 1 : 0) : 0,
+            $data['patientId'] ?? null,
             $data['id']
         ]);
 
         echo json_encode(["message" => "Appointment updated"]);
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(["error" => $e->getMessage()]);
+        echo json_encode(["error" => "Database error: " . $e->getMessage(), "code" => $e->getCode()]);
     }
 } elseif ($method === 'DELETE') {
     $id = $_GET['id'] ?? null;

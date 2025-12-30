@@ -1,7 +1,11 @@
 <?php
 // Database Configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u180145459_rajopdconsole');
-define('DB_USER', 'u180145459_opdconsole');
-define('DB_PASS', 'Raj@dsdm0012');
+define('DB_NAME', 'rajtruedent_opd');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+
+// Reporting Configuration
+define('REPORT_RECIPIENTS', 'dsdm0012@gmail.com, admin@rajtruedent.com');
+define('CLINIC_EMAIL_FROM', 'noreply@rajtruedent.com');
 ?>

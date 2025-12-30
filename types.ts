@@ -84,10 +84,34 @@ export interface TreatmentRecord {
 export interface PaymentTransaction {
   id: string;
   patientId: string;
+  treatmentId?: string;
   date: string;
   amount: number;
   mode: PaymentMode;
   notes?: string;
+  patientName?: string; // Virtual field for display
+}
+
+export interface Expense {
+  id: string;
+  category: 'Lab' | 'Doctor' | 'Staff' | 'Rent' | 'Utilities' | 'Supplies' | 'Others';
+  recipientName: string;
+  amount: number;
+  date: string;
+  notes?: string;
+  status: 'Pending' | 'Paid';
+}
+
+export interface BillingSummary {
+  totalIncome: number;
+  totalExpenses: number;
+  netProfit: number;
+  pendingPatientDues: number;
+  pendingLabDues: number;
+  categoryBreakdown: {
+    income: Record<string, number>;
+    expenses: Record<string, number>;
+  };
 }
 
 export interface Appointment {

@@ -48,13 +48,17 @@ try {
         id INT AUTO_INCREMENT PRIMARY KEY,
         serial_number VARCHAR(50) UNIQUE,
         name VARCHAR(100) NOT NULL,
-        phone_number VARCHAR(20),
+        phone_number VARCHAR(20) UNIQUE,
         age INT,
         sex ENUM('Male', 'Female', 'Other'),
         address TEXT,
         medical_history TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
+    try {
+        $pdo->exec("ALTER TABLE patients ADD UNIQUE (phone_number)");
+    } catch (PDOException $e) {
+    }
     echo "Patients table checked/created.<br>";
 
     // Treatments Table
@@ -124,13 +128,33 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS payments (
         id INT AUTO_INCREMENT PRIMARY KEY,
         patient_id INT NOT NULL,
+        treatment_id INT,
         date DATETIME DEFAULT CURRENT_TIMESTAMP,
         amount DECIMAL(10, 2),
         mode VARCHAR(50),
         notes TEXT,
-        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+        FOREIGN KEY (treatment_id) REFERENCES treatments(id) ON DELETE SET NULL
     )");
-    echo "Payments table checked/created.<br>";
+    try {
+        $pdo->exec("ALTER TABLE payments ADD COLUMN treatment_id INT");
+        $pdo->exec("ALTER TABLE payments ADD FOREIGN KEY (treatment_id) REFERENCES treatments(id) ON DELETE SET NULL");
+    } catch (PDOException $e) {
+    }
+    echo "Payments table checked/created/updated.<br>";
+
+    // Expenses Table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS expenses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category ENUM('Lab', 'Doctor', 'Staff', 'Rent', 'Utilities', 'Supplies', 'Others') NOT NULL,
+        recipient_name VARCHAR(255) NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        date DATE NOT NULL,
+        notes TEXT,
+        status ENUM('Pending', 'Paid') DEFAULT 'Paid',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    echo "Expenses table checked/created.<br>";
 
     // Notifications Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS notifications (

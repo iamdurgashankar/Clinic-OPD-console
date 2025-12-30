@@ -1,7 +1,7 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -72,6 +72,7 @@ if ($method === 'GET') {
     try {
         $sql = "INSERT INTO treatments (
             patient_id, type, date, description, amount, paid, due, 
+            lab_status, cap_sending_date, cap_received_date, cap_fixed_date, cap_fixing_person,
             crown_material, crown_shade, rct_file_types, rct_irrigation,
             braces_type, ortho_bracket_system, ortho_wire_type, treatment_start_date, doctor_name, next_follow_up, reminder_sent
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";

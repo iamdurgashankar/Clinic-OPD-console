@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Patient, TreatmentRecord, TreatmentType, LabStatus, Appointment, PaymentMode, Staff, User, ClinicNotification, PaymentTransaction } from '../types';
+import { Patient, TreatmentRecord, TreatmentType, LabStatus, Appointment, PaymentMode, Staff, User, ClinicNotification, PaymentTransaction, Expense } from '../types';
 import { api } from '../services/api';
 
 interface StoreContextType {
@@ -9,6 +9,7 @@ interface StoreContextType {
   payments: PaymentTransaction[];
   staff: Staff[];
   notifications: ClinicNotification[];
+  expenses: Expense[];
   addPatient: (p: Patient) => Promise<string>;
   updatePatient: (p: Patient) => void;
   deletePatient: (id: string) => void;
@@ -25,6 +26,9 @@ interface StoreContextType {
   getPendingDues: () => number;
   markNotificationRead: (id: string) => void;
   addNotification: (userId: string | undefined, message: string, type: 'info' | 'reminder' | 'urgent') => void;
+  addExpense: (e: Expense) => Promise<string>;
+  updateExpense: (e: Expense) => void;
+  deleteExpense: (id: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -53,18 +57,20 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const [payments, setPayments] = useState<PaymentTransaction[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [notifications, setNotifications] = useState<ClinicNotification[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [p, t, a, pay, s, n] = await Promise.all([
+        const [p, t, a, pay, s, n, e] = await Promise.all([
           api.getPatients(),
           api.getTreatments(),
           api.getAppointments(),
           api.getPayments(),
           api.getStaff(),
-          api.getNotifications()
+          api.getNotifications(),
+          api.getExpenses()
         ]);
         setPatients(p);
         setTreatments(t);
@@ -72,6 +78,7 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
         setPayments(pay);
         setStaff(s);
         setNotifications(n);
+        setExpenses(e);
       } catch (error) {
         console.error("Failed to fetch data", error);
       }
@@ -84,9 +91,9 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
       const res = await api.createPatient(p);
       setPatients(prev => [...prev, { ...p, id: res.id }]);
       return res.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to add patient", error);
-      return '';
+      throw error; // Re-throw to handle in UI (e.g. toast)
     }
   };
 
@@ -114,7 +121,7 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const addTreatment = async (t: TreatmentRecord): Promise<string> => {
     try {
       const res = await api.createTreatment(t);
-      setTreatments(prev => [...prev, { ...t, id: res.id }]);
+      setTreatments(prev => [{ ...t, id: res.id }, ...prev]);
       return res.id;
     } catch (error) {
       console.error("Failed to add treatment", error);
@@ -145,7 +152,7 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const updateAppointment = async (a: Appointment) => {
     try {
       await api.updateAppointment(a);
-      setAppointments(prev => prev.map(x => x.id === a.id ? a : x));
+      setAppointments(prev => prev.map(x => x.id == a.id ? a : x));
     } catch (error) {
       console.error("Failed to update appointment", error);
     }
@@ -154,7 +161,7 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const deleteAppointment = async (id: string) => {
     try {
       await api.deleteAppointment(id);
-      setAppointments(prev => prev.filter(x => x.id !== id));
+      setAppointments(prev => prev.filter(x => x.id != id));
     } catch (error) {
       console.error("Failed to delete appointment", error);
     }
@@ -233,7 +240,10 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
     }
   };
 
-  const getPatientTreatments = (id: string) => treatments.filter(t => t.patientId === id);
+  const getPatientTreatments = (id: string) =>
+    treatments
+      .filter(t => t.patientId == id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const getPendingDues = () => treatments.reduce((acc, curr) => acc + curr.due, 0);
 
   const markNotificationRead = async (id: string) => {
@@ -261,6 +271,35 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
     }
   };
 
+  const addExpense = async (e: Expense): Promise<string> => {
+    try {
+      const res = await api.createExpense(e);
+      setExpenses(prev => [{ ...e, id: res.id }, ...prev]);
+      return res.id;
+    } catch (error) {
+      console.error("Failed to add expense", error);
+      return '';
+    }
+  };
+
+  const updateExpense = async (e: Expense) => {
+    try {
+      await api.updateExpense(e);
+      setExpenses(prev => prev.map(x => x.id === e.id ? e : x));
+    } catch (error) {
+      console.error("Failed to update expense", error);
+    }
+  };
+
+  const deleteExpense = async (id: string) => {
+    try {
+      await api.deleteExpense(id);
+      setExpenses(prev => prev.filter(x => x.id !== id));
+    } catch (error) {
+      console.error("Failed to delete expense", error);
+    }
+  };
+
   return (
     <StoreContext.Provider value={{
       patients, treatments, appointments, payments, staff, notifications,
@@ -272,7 +311,8 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
       getPatientTreatments,
       getPendingDues,
       markNotificationRead,
-      addNotification
+      addNotification,
+      expenses, addExpense, updateExpense, deleteExpense
     }}>
       {children}
     </StoreContext.Provider>

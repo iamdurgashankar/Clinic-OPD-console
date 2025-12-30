@@ -713,7 +713,7 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
               />
 
               {/* Dynamic Mini Fields */}
-              {newTreatment.type === TreatmentType.RCT && (
+              {(newTreatment.type === TreatmentType.RCT || newTreatment.type === TreatmentType.PULPECTOMY) && (
                 <div className="flex flex-col gap-2">
                   <input placeholder="File Types used..." className={`bg-orange-50 border-orange-200 ${smallInputClass}`}
                     value={newTreatment.rctFileTypes || ''} onChange={e => setNewTreatment({ ...newTreatment, rctFileTypes: e.target.value })} />

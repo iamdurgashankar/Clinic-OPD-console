@@ -1,5 +1,5 @@
 const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_URL = isDev ? 'http://localhost:8000/backend/api' : '/backend/api';
+const API_URL = isDev ? 'http://localhost:8000/api' : '/backend/api';
 
 export const api = {
     login: async (credentials: { username: string; password: string }) => {
@@ -106,7 +106,11 @@ export const api = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appointment),
             });
-            if (!response.ok) throw new Error('Failed to update appointment');
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Server error during update:', errorText);
+                throw new Error('Failed to update appointment: ' + errorText);
+            }
             return response.json();
         } catch (error) {
             throw error;
@@ -185,6 +189,87 @@ export const api = {
                 body: JSON.stringify(payment),
             });
             if (!response.ok) throw new Error('Failed to create payment');
+            return response.json();
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    // Expenses
+    getExpenses: async () => {
+        try {
+            const response = await fetch(`${API_URL}/expenses.php`);
+            if (!response.ok) throw new Error('Failed to fetch expenses');
+            return response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            return [];
+        }
+    },
+
+    createExpense: async (expense: any) => {
+        try {
+            const response = await fetch(`${API_URL}/expenses.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(expense),
+            });
+            if (!response.ok) throw new Error('Failed to create expense');
+            return response.json();
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    updateExpense: async (expense: any) => {
+        try {
+            const response = await fetch(`${API_URL}/expenses.php`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(expense),
+            });
+            if (!response.ok) throw new Error('Failed to update expense');
+            return response.json();
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    deleteExpense: async (id: string) => {
+        try {
+            const response = await fetch(`${API_URL}/expenses.php?id=${id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) throw new Error('Failed to delete expense');
+            return response.json();
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    getBillingSummary: async (params?: { start?: string; end?: string }) => {
+        try {
+            let url = `${API_URL}/billing_summary.php`;
+            if (params?.start && params?.end) {
+                url += `?start=${params.start}&end=${params.end}`;
+            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch billing summary');
+            return response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    },
+
+    sendBillingReport: async (data: { summary: any; dateRange: string }) => {
+        try {
+            const response = await fetch(`${API_URL}/send_billing_report.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!response.ok) throw new Error('Failed to send email report');
             return response.json();
         } catch (error) {
             throw error;

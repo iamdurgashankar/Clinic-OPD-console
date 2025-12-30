@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, User, ArrowRight, Stethoscope } from 'lucide-react';
 import { CLINIC_NAME } from '../constants';
 import { User as UserType } from '../types';
+import { api } from '../services/api';
 import toast from 'react-hot-toast';
 
 interface LoginProps {
@@ -16,41 +17,29 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-
         try {
-            // Try backend login first
-            const response = await fetch('http://localhost:8000/api/login.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                toast.success(`Welcome back, ${data.user.username}!`);
-                onLogin(data.user);
+            // Use the unified API service
+            const data = await api.login({ username, password });
+            toast.success(`Welcome back, ${data.user.username}!`);
+            onLogin(data.user);
+        } catch (error: any) {
+            // Backend unreachable or credentials invalid
+            if (error.message.includes('401')) {
+                toast.error('Invalid credentials. Please try again.');
+                setIsLoading(false);
             } else {
-                // If backend returns specific error (like invalid creds), show it
-                if (response.status === 401) {
-                    toast.error('Invalid credentials. Please try again.');
-                    setIsLoading(false);
-                } else {
-                    throw new Error(data.error || 'Login failed');
-                }
+                console.log('Backend unreachable or error, falling back to local demo mode');
+                // Fallback for demo/offline mode
+                setTimeout(() => {
+                    if (username === 'admin' && password === 'admin') {
+                        toast.success('Welcome back, admin! (Offline Mode)');
+                        onLogin({ id: 'demo-admin', username: 'admin', role: 'admin', displayName: 'admin' });
+                    } else {
+                        toast.error('Invalid credentials (Offline Mode).');
+                        setIsLoading(false);
+                    }
+                }, 800);
             }
-        } catch (error) {
-            console.log('Backend unreachable or error, falling back to local demo mode');
-            // Fallback for demo/offline mode
-            setTimeout(() => {
-                if (username === 'admin' && password === 'admin') {
-                    toast.success('Welcome back, admin! (Offline Mode)');
-                    onLogin({ id: 'demo-admin', username: 'admin', role: 'admin', displayName: 'admin' });
-                } else {
-                    toast.error('Invalid credentials (Offline Mode).');
-                    setIsLoading(false);
-                }
-            }, 800);
         }
     };
 

@@ -28,13 +28,19 @@ switch ($method) {
             exit();
         }
         $hash = password_hash($data['password'], PASSWORD_DEFAULT);
+        $displayName = $data['display_name'] ?? $data['username'];
         try {
-            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'staff')");
-            $stmt->execute([$data['username'], $hash]);
+            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role, display_name) VALUES (?, ?, 'staff', ?)");
+            $stmt->execute([$data['username'], $hash, $displayName]);
             echo json_encode(["message" => "User created", "id" => $pdo->lastInsertId()]);
         } catch (PDOException $e) {
-            http_response_code(409);
-            echo json_encode(["error" => "Username already exists"]);
+            if ($e->getCode() == 23000) { // Integrity constraint violation (usually duplicate key)
+                http_response_code(409);
+                echo json_encode(["error" => "Username already exists"]);
+            } else {
+                http_response_code(500);
+                echo json_encode(["error" => "Database error: " . $e->getMessage()]);
+            }
         }
         break;
 

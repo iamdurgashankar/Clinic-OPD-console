@@ -7,6 +7,7 @@ import { Appointments } from './pages/Appointments';
 import { Treatments } from './pages/Treatments';
 import { Login } from './pages/Login';
 import { AdminPanel } from './pages/AdminPanel';
+import { Billing } from './pages/Billing';
 import { User } from './types';
 import { Toaster } from 'react-hot-toast';
 import { Menu, Bell, User as UserIcon, LogOut, ChevronDown } from 'lucide-react';
@@ -37,6 +38,8 @@ const Router = ({ onLogout, user, onUpdateUser }: { onLogout: () => void, user: 
         return <Treatments type={currentRoute as any} />;
       case 'admin':
         return <AdminPanel />;
+      case 'billing':
+        return <Billing />;
       default: return <Dashboard />;
     }
   };
@@ -172,7 +175,7 @@ const Router = ({ onLogout, user, onUpdateUser }: { onLogout: () => void, user: 
   );
 };
 
-const App = () => {
+const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -221,8 +224,14 @@ const App = () => {
   }
 
   return (
+    <Router onLogout={handleLogout} user={user} onUpdateUser={handleUpdateUser} />
+  );
+};
+
+const App = () => {
+  return (
     <StoreProvider>
-      <Router onLogout={handleLogout} user={user} onUpdateUser={handleUpdateUser} />
+      <AppContent />
     </StoreProvider>
   );
 };

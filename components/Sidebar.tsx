@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Users, Calendar, Syringe, Crown,
   LogOut, Activity, ClipboardList, ChevronDown,
-  ChevronRight, Stethoscope, ShieldAlert, Bell
+  ChevronRight, Stethoscope, ShieldAlert, Bell, CreditCard
 } from 'lucide-react';
 import { CLINIC_NAME } from '../constants';
 import { useStore } from '../context/StoreContext';
@@ -31,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentRoute, onNavigate, onLo
     { id: 'appointments', label: 'Appointments', icon: Calendar },
     { id: 'patients', label: 'Patient Master', icon: Users },
     { id: 'treatments', label: 'All Treatments', icon: ClipboardList },
+    { id: 'billing', label: 'Billing & Payments', icon: CreditCard },
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: ShieldAlert }] : []),
 
     {

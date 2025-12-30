@@ -6,7 +6,7 @@ import {
   UserPlus, Search, Phone, FileText,
   CheckCircle, AlertCircle,
   Stethoscope, CreditCard, ArrowRight,
-  Bell, X, Share2, Send, List
+  Bell, X, Share2, Send, List, Plus
 } from 'lucide-react';
 import { AddPatientModal } from '../components/AddPatientModal';
 import { PatientProfile } from '../components/PatientProfile';
@@ -90,9 +90,11 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const updateStatus = (id: string, status: 'Completed' | 'Cancelled' | 'Scheduled') => {
-    const app = appointments.find(a => a.id === id);
-    if (app) updateAppointment({ ...app, status });
+  const updateStatus = async (id: any, status: 'Completed' | 'Cancelled' | 'Scheduled') => {
+    const app = appointments.find(a => String(a.id) === String(id));
+    if (app) {
+      await updateAppointment({ ...app, status });
+    }
   };
 
   // Handler for opening search modal
@@ -119,7 +121,7 @@ export const Dashboard: React.FC = () => {
   const upcomingReminders = todaysAppointments.filter(a => a.status === 'Scheduled');
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] flex-col gap-6">
+    <div className="flex flex-col gap-6">
 
       {/* 0. Notification Banner */}
       {showBanner && upcomingReminders.length > 0 && (
@@ -209,11 +211,21 @@ export const Dashboard: React.FC = () => {
                           </div>
                           <div className="mt-1 flex items-center gap-2 text-xs text-gray-600">
                             <Phone size={12} /> {p.phoneNumber}
+                            <span>•</span>
+                            <span>{p.age}y {p.sex}</span>
                           </div>
-                          <div className="mt-2 text-xs">
-                            <span className={`font-bold ${totalDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          <div className="mt-2 flex flex-col gap-1">
+                            <div className="text-[10px] uppercase font-bold text-gray-400">Clinical History</div>
+                            <div className="text-xs text-gray-700">
+                              {pTreatments.length > 0 ? (
+                                <span>Latest: <span className="font-semibold text-teal-600">{pTreatments[0].type}</span> ({pTreatments[0].date})</span>
+                              ) : (
+                                <span className="text-gray-400 italic">No treatment history</span>
+                              )}
+                            </div>
+                            <div className={`text-xs font-bold ${totalDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
                               {totalDue > 0 ? `Outstanding: ₹${totalDue}` : 'No Dues'}
-                            </span>
+                            </div>
                           </div>
                         </div>
                         <button
@@ -225,7 +237,7 @@ export const Dashboard: React.FC = () => {
                           }}
                           className="mt-3 flex items-center justify-center gap-1 w-full rounded border border-teal-200 bg-white py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-600 hover:text-white transition-colors"
                         >
-                          View Profile <ArrowRight size={12} />
+                          Full History & Billing <ArrowRight size={12} />
                         </button>
                       </div>
                     )
@@ -282,9 +294,9 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column: Live Queue (Takes 2/3 width) */}
-        <div className="flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2">
+        <div className="flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm lg:col-span-2 overflow-hidden">
           <div className="flex items-center justify-between border-b border-gray-100 p-4">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-800">
               <Activity className="text-teal-600" size={20} />
@@ -295,7 +307,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto p-0">
+          <div className="overflow-x-auto p-0">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-gray-50 text-xs font-semibold uppercase text-gray-500">
                 <tr>
@@ -310,7 +322,7 @@ export const Dashboard: React.FC = () => {
                 {todaysAppointments
                   .sort((a, b) => a.time.localeCompare(b.time))
                   .map((app) => {
-                    const patient = patients.find(p => p.id === app.patientId);
+                    const patient = patients.find(p => p.id == app.patientId);
 
                     return (
                       <tr key={app.id} className={`group hover:bg-slate-50 ${app.status === 'Completed' ? 'bg-gray-50/50 opacity-75' : ''}`}>
@@ -401,35 +413,109 @@ export const Dashboard: React.FC = () => {
               <Clock size={16} /> Follow-up Reminders
             </h3>
             <div className="space-y-3">
-              {treatments
-                .filter(t => t.nextFollowUp && new Date(t.nextFollowUp) <= new Date() && !t.reminderSent)
-                .slice(0, 5)
-                .map((t: any) => {
-                  const patient = patients.find(p => p.id === t.patientId);
+              {(() => {
+                // 1. Get due treatments
+                const followUpsFromTreatments = treatments
+                  .filter(t => !t.reminderSent && t.nextFollowUp === today);
+
+                // 2. Get today's follow-up appointments
+                const followUpsFromAppointments = todaysAppointments
+                  .filter(a => a.purpose.toLowerCase().includes('follow-up') && a.status === 'Scheduled');
+
+                // 3. Merge and dedupe
+                const merged = [...followUpsFromTreatments.map(t => ({
+                  id: t.id,
+                  patientId: t.patientId,
+                  patientName: t.patientName,
+                  type: t.type,
+                  nextFollowUp: t.nextFollowUp
+                }))];
+
+                followUpsFromAppointments.forEach(a => {
+                  if (!merged.find(m => String(m.patientId) == String(a.patientId))) {
+                    merged.push({
+                      id: `appt-${a.id}`,
+                      patientId: a.patientId,
+                      patientName: a.patientName,
+                      type: 'Follow-up' as any,
+                      nextFollowUp: a.date
+                    });
+                  }
+                });
+
+                const finalReminders = merged.slice(0, 5);
+
+                if (finalReminders.length === 0) {
+                  return <p className="text-center text-xs text-slate-400 py-4 italic">No pending follow-ups</p>;
+                }
+
+                return finalReminders.map((t: any) => {
+                  const patient = patients.find(p => p.id == t.patientId);
+                  const scheduledAppt = todaysAppointments.find(a =>
+                    String(a.patientId) == String(t.patientId) &&
+                    a.status === 'Scheduled'
+                  );
+
                   return (
-                    <div key={t.id} className="rounded-lg bg-white p-3 border border-teal-100 text-sm">
+                    <div key={t.id} className="rounded-lg bg-white p-3 border border-teal-100 text-sm shadow-sm">
                       <div className="flex justify-between font-bold text-slate-800">
                         <span>{t.patientName}</span>
-                        <span className="text-xs text-teal-600 italic">Due {t.nextFollowUp}</span>
+                        <span className="text-[10px] text-teal-600 font-mono bg-teal-50 px-1.5 py-0.5 rounded">Due {t.nextFollowUp}</span>
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{t.type}</div>
-                      <button
-                        onClick={async () => {
-                          if (patient?.phoneNumber) {
-                            sendTreatmentReminder(t.patientName, patient.phoneNumber, t.type, t.nextFollowUp || '');
-                            await updateTreatment({ ...t, reminderSent: true });
-                          }
-                        }}
-                        className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-teal-600 py-1.5 text-xs font-bold text-white hover:bg-teal-700"
-                      >
-                        <Send size={12} /> Send WhatsApp
-                      </button>
+                      <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                        <Activity size={10} /> {t.type}
+                      </div>
+
+                      {scheduledAppt ? (
+                        <div className="mt-2.5 flex items-center justify-between rounded-md bg-indigo-50 px-2 py-2 text-[11px] font-bold text-indigo-700 border border-indigo-100">
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={12} className="animate-pulse" />
+                            {scheduledAppt.date === today ? 'ARRIVING TODAY' : `BOOKED: ${scheduledAppt.date}`}
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (patient?.phoneNumber) {
+                                sendTreatmentReminder(t.patientName, patient.phoneNumber, t.type, t.nextFollowUp || '');
+                                await updateTreatment({ ...t, reminderSent: true });
+                              }
+                            }}
+                            className="text-indigo-400 hover:text-indigo-700"
+                            title="Resend WhatsApp Reminder"
+                          >
+                            <Send size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={async () => {
+                              if (patient?.phoneNumber) {
+                                sendTreatmentReminder(t.patientName, patient.phoneNumber, t.type, t.nextFollowUp || '');
+                                await updateTreatment({ ...t, reminderSent: true });
+                              }
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-md bg-emerald-50 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                          >
+                            <Send size={12} /> WhatsApp
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (patient) {
+                                setProfileInitialTab('appointments');
+                                setProfileInitialAction('add_appointment');
+                                setSelectedPatient(patient);
+                              }
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-md bg-teal-600 py-1.5 text-xs font-bold text-white hover:bg-teal-700 shadow-sm"
+                          >
+                            <Plus size={12} /> Book Appt
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
-                })}
-              {treatments.filter((t: any) => t.nextFollowUp && new Date(t.nextFollowUp) <= new Date() && !t.reminderSent).length === 0 && (
-                <p className="text-center text-xs text-slate-400 py-4 italic">No pending follow-ups</p>
-              )}
+                });
+              })()}
             </div>
           </div>
 

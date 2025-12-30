@@ -41,11 +41,13 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
 
   const pageType = getTreatmentType(type);
 
-  const filteredTreatments = treatments.filter(t => {
-    const typeMatch = isAllView ? true : t.type === pageType;
-    const dueMatch = filterDue ? t.due > 0 : true;
-    return typeMatch && dueMatch;
-  });
+  const filteredTreatments = treatments
+    .filter(t => {
+      const typeMatch = isAllView ? true : t.type === pageType;
+      const dueMatch = filterDue ? t.due > 0 : true;
+      return typeMatch && dueMatch;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const initialFormState: Partial<TreatmentRecord> = {
     date: new Date().toISOString().split('T')[0],
@@ -81,7 +83,7 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patientId) return;
-    const p = patients.find(x => x.id === form.patientId);
+    const p = patients.find(x => x.id == form.patientId);
 
     addTreatment({
       id: Date.now().toString(),
@@ -138,7 +140,7 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
 
     // Get specific details string based on type
     let specifics = '';
-    if (t.type === TreatmentType.RCT) {
+    if (t.type === TreatmentType.RCT || t.type === TreatmentType.PULPECTOMY) {
       if (t.rctFileTypes) specifics += `<p><strong>Files Used:</strong> ${t.rctFileTypes}</p>`;
       if (t.rctIrrigation) specifics += `<p><strong>Irrigation:</strong> ${t.rctIrrigation}</p>`;
     } else if (t.type === TreatmentType.CROWN) {
@@ -263,7 +265,10 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
             <Filter size={18} /> Due Only
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setForm(initialFormState);
+              setShowModal(true);
+            }}
             className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-white shadow hover:bg-teal-700"
           >
             <Plus size={18} /> New Entry
@@ -312,8 +317,8 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
                 <td className="px-6 py-4">
                   <div className="font-medium text-gray-800">{t.description}</div>
 
-                  {/* RCT Details Display */}
-                  {t.type === TreatmentType.RCT && (t.rctFileTypes || t.rctIrrigation) && (
+                  {/* RCT & Pulpectomy Details Display */}
+                  {(t.type === TreatmentType.RCT || t.type === TreatmentType.PULPECTOMY) && (t.rctFileTypes || t.rctIrrigation) && (
                     <div className="mt-2 flex flex-col gap-1 text-xs text-slate-500">
                       {t.rctFileTypes && (
                         <div className="flex items-center gap-1.5">
@@ -519,7 +524,7 @@ export const Treatments: React.FC<TreatmentsProps> = ({ type }) => {
               </div>
 
               {/* Dynamic Fields based on form.type */}
-              {form.type === TreatmentType.RCT && (
+              {(form.type === TreatmentType.RCT || form.type === TreatmentType.PULPECTOMY) && (
                 <div className="rounded-lg border border-orange-100 bg-orange-50/30 p-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
