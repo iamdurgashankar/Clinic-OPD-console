@@ -1,9 +1,9 @@
 <?php
 // Database Configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'rajtruedent_opd');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'u180145459_rajopdconsole');
+define('DB_USER', 'u180145459_opdconsole');
+define('DB_PASS', 'iamdsdm@Rajtruedent2025');
 
 // Reporting Configuration
 define('REPORT_RECIPIENTS', 'dsdm0012@gmail.com, admin@rajtruedent.com');
