@@ -63,8 +63,19 @@ if ($method === 'GET') {
         $id = $pdo->lastInsertId();
         echo json_encode(["message" => "Patient created", "id" => $id]);
     } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(["error" => $e->getMessage()]);
+        if ($e->getCode() == 23000) {
+            http_response_code(409);
+            if (strpos($e->getMessage(), 'phone_number') !== false) {
+                echo json_encode(["error" => "A patient with this phone number already exists."]);
+            } else if (strpos($e->getMessage(), 'serial_number') !== false) {
+                echo json_encode(["error" => "This serial number is already in use. Please try again."]);
+            } else {
+                echo json_encode(["error" => "A patient with these details already exists."]);
+            }
+        } else {
+            http_response_code(500);
+            echo json_encode(["error" => $e->getMessage()]);
+        }
     }
 } elseif ($method === 'PUT') {
     $data = json_decode(file_get_contents("php://input"), true);

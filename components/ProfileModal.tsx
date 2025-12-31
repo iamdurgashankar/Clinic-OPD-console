@@ -18,6 +18,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    // Reset state when modal opens or user changes
+    React.useEffect(() => {
+        if (isOpen && user) {
+            setUsername(user.username || '');
+            setDisplayName(user.displayName || '');
+            setPassword('');
+            setConfirmPassword('');
+        }
+    }, [isOpen, user]);
+
     if (!isOpen || !user) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -38,11 +48,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, use
             });
 
             toast.success("Profile updated successfully");
-            onUpdate({
-                ...user,
-                username,
-                displayName: displayName || username
-            });
+
+            // Use the data returned from server to ensure perfect sync
+            if (response.user) {
+                onUpdate({
+                    ...user,
+                    ...response.user
+                });
+            } else {
+                onUpdate({
+                    ...user,
+                    username,
+                    displayName: displayName || username
+                });
+            }
             onClose();
         } catch (error: any) {
             toast.error(error.message || "Failed to update profile");

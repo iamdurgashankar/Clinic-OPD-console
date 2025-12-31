@@ -12,11 +12,12 @@ import { AddPatientModal } from '../components/AddPatientModal';
 import { PatientProfile } from '../components/PatientProfile';
 import { PatientSearchModal } from '../components/PatientSearchModal';
 import { ReportsModal } from '../components/ReportsModal';
-import { Patient, Appointment } from '../types';
+import { Patient, Appointment, TreatmentType } from '../types';
+import toast from 'react-hot-toast';
 import { sendDoctorSchedule, sendPatientReminder, sendTreatmentReminder } from '../services/whatsappService';
 
 export const Dashboard: React.FC = () => {
-  const { patients, appointments, treatments, getPendingDues, addPatient, getPatientTreatments, updateAppointment, updateTreatment, addAppointment, staff } = useStore();
+  const { patients, appointments, treatments, getPendingDues, addPatient, getPatientTreatments, updateAppointment, updateTreatment, addAppointment, addTreatment, staff } = useStore();
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
@@ -54,39 +55,76 @@ export const Dashboard: React.FC = () => {
     )
     : [];
 
-  const handleRegisterPatient = async (data: Partial<Patient>, assignedDoctor?: string) => {
+  const handleRegisterPatient = async (
+    data: Partial<Patient>,
+    assignedDoctor: string,
+    bookAppointment: boolean,
+    appointmentTime: string,
+    consultationFee: number
+  ) => {
     if (data.name && data.phoneNumber) {
-      const tempId = Date.now().toString();
-      const regDate = data.createdAt || new Date().toISOString();
+      let loadingToast: string | undefined;
+      try {
+        loadingToast = toast.loading('Registering patient...');
 
-      // 1. Create Patient
-      const realPatientId = await addPatient({
-        id: tempId,
-        serialNumber: `RTD-${1000 + patients.length + 1}`,
-        createdAt: regDate,
-        name: data.name!,
-        phoneNumber: data.phoneNumber!,
-        age: data.age || 0,
-        sex: data.sex as any || 'Male',
-        address: data.address || ''
-      });
+        // Robust Serial Number Generation
+        const lastSerialNum = patients.reduce((max: number, p: Patient) => {
+          const num = parseInt(p.serialNumber.replace('RTD-', ''));
+          return isNaN(num) ? max : Math.max(max, num);
+        }, 1000);
+        const newSerialNumber = `RTD-${lastSerialNum + 1}`;
 
-      // 2. Auto-Book Appointment for OPD Queue
-      const appointmentDate = regDate.split('T')[0];
-      const currentTime = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        const regDate = data.createdAt || new Date().toISOString();
 
-      addAppointment({
-        id: `apt-${Date.now()}`,
-        patientId: realPatientId,
-        patientName: data.name!,
-        date: appointmentDate,
-        time: currentTime,
-        purpose: 'New Registration / Consultation',
-        assignedStaff: assignedDoctor || (staff.length > 0 ? staff[0].name : 'General'),
-        status: 'Scheduled'
-      });
+        // 1. Create Patient
+        const realPatientId = await addPatient({
+          id: Date.now().toString(),
+          serialNumber: newSerialNumber,
+          createdAt: regDate,
+          name: data.name!,
+          phoneNumber: data.phoneNumber!,
+          age: data.age || 0,
+          sex: data.sex as any || 'Male',
+          address: data.address || ''
+        });
 
-      setShowRegisterModal(false);
+        if (bookAppointment && realPatientId) {
+          // 2. Auto-Book Appointment for OPD Queue
+          const appointmentDate = regDate.split('T')[0];
+
+          await addAppointment({
+            id: `apt-${Date.now()}`,
+            patientId: realPatientId,
+            patientName: data.name!,
+            date: appointmentDate,
+            time: appointmentTime,
+            purpose: 'New Consultation',
+            assignedStaff: assignedDoctor,
+            status: 'Scheduled'
+          });
+
+          // 3. Create Clinical Record (Treatment)
+          await addTreatment({
+            id: `trt-${Date.now()}`,
+            patientId: realPatientId,
+            patientName: data.name!,
+            type: TreatmentType.GENERAL,
+            date: appointmentDate,
+            description: 'New Consultation',
+            amount: consultationFee,
+            paid: 0,
+            due: consultationFee,
+            doctorName: assignedDoctor
+          });
+        }
+
+        toast.success(bookAppointment ? 'Registration & Appointment Successful!' : 'Patient Registered Successfully!', { id: loadingToast });
+        setShowRegisterModal(false);
+      } catch (error: any) {
+        console.error("Registration error:", error);
+        toast.error(error.message || 'Failed to register patient. Please try again.', { id: loadingToast });
+        // Don't close modal on error
+      }
     }
   };
 

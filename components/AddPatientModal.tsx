@@ -4,11 +4,18 @@ import { X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Patient } from '../types';
 import { DatePicker } from './DatePicker';
+import { TimePicker } from './TimePicker';
 
 interface AddPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (patientData: Partial<Patient>, assignedDoctor?: string) => void;
+  onSave: (
+    patientData: Partial<Patient>,
+    assignedDoctor: string,
+    bookAppointment: boolean,
+    appointmentTime: string,
+    consultationFee: number
+  ) => void;
   initialData?: Patient;
 }
 
@@ -30,6 +37,9 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClos
   });
 
   const [selectedDoctor, setSelectedDoctor] = useState('');
+  const [bookAppointment, setBookAppointment] = useState(true);
+  const [appointmentTime, setAppointmentTime] = useState('09:00');
+  const [consultationFee, setConsultationFee] = useState(0);
 
   useEffect(() => {
     if (staff.length > 0 && !selectedDoctor) {
@@ -52,13 +62,16 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClos
           createdAt: getTodayString()
         });
         setSelectedDoctor(staff.length > 0 ? staff[0].name : '');
+        setBookAppointment(true);
+        setAppointmentTime('09:00');
+        setConsultationFee(0);
       }
     }
   }, [isOpen, initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData, !initialData ? selectedDoctor : undefined);
+    onSave(formData, selectedDoctor, bookAppointment, appointmentTime, consultationFee);
   };
 
   if (!isOpen) return null;
@@ -161,6 +174,50 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClos
               placeholder="Full Address"
             />
           </div>
+
+          {!isEditMode && (
+            <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="bookAppointment"
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    checked={bookAppointment}
+                    onChange={(e) => setBookAppointment(e.target.checked)}
+                  />
+                  <label htmlFor="bookAppointment" className="text-sm font-bold text-teal-900">
+                    Book appointment along with registration
+                  </label>
+                </div>
+              </div>
+
+              {bookAppointment && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-teal-700">Appointment Time</label>
+                    <TimePicker
+                      value={appointmentTime}
+                      onChange={setAppointmentTime}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-teal-700">Consultation Fee (₹)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-teal-600 font-bold">₹</span>
+                      <input
+                        type="number"
+                        className={`${inputClass} pl-8 !bg-white !border-teal-200`}
+                        value={consultationFee}
+                        onChange={e => setConsultationFee(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 flex justify-end gap-3 border-t pt-4">
             <button

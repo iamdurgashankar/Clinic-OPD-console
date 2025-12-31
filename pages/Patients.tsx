@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Patient } from '../types';
+import { Patient, TreatmentType } from '../types';
+import toast from 'react-hot-toast';
 import { Search, Plus, Trash2, Edit2, FileText, ArrowRightCircle } from 'lucide-react';
 import { AddPatientModal } from '../components/AddPatientModal';
 import { PatientProfile } from '../components/PatientProfile';
 
 export const Patients: React.FC = () => {
-  const { patients, treatments, addPatient, updatePatient, deletePatient } = useStore();
+  const { patients, treatments, addPatient, updatePatient, deletePatient, addAppointment, addTreatment } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Controls the full profile view
   const [selectedProfile, setSelectedProfile] = useState<Patient | null>(null);
 
-  const filteredPatients = patients.filter(p =>
+  const filteredPatients = patients.filter((p: Patient) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.phoneNumber.includes(searchTerm)
@@ -23,22 +24,75 @@ export const Patients: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleSavePatient = (data: Partial<Patient>) => {
+  const handleSavePatient = async (
+    data: Partial<Patient>,
+    assignedDoctor: string,
+    bookAppointment: boolean,
+    appointmentTime: string,
+    consultationFee: number
+  ) => {
     // Create Mode only
     if (data.name && data.phoneNumber) {
-      const id = Date.now().toString();
-      addPatient({
-        id,
-        serialNumber: `RTD-${1000 + patients.length + 1}`,
-        createdAt: data.createdAt || new Date().toISOString(), // Use selected date
-        name: data.name!,
-        phoneNumber: data.phoneNumber!,
-        age: data.age || 0,
-        sex: data.sex as any || 'Male',
-        address: data.address || ''
-      });
+      let loadingToast: string | undefined;
+      try {
+        loadingToast = toast.loading('Registering patient...');
+
+        // Robust Serial Number Generation
+        const lastSerialNum = patients.reduce((max: number, p: Patient) => {
+          const num = parseInt(p.serialNumber.replace('RTD-', ''));
+          return isNaN(num) ? max : Math.max(max, num);
+        }, 1000);
+        const newSerialNumber = `RTD-${lastSerialNum + 1}`;
+
+        const patientData: Patient = {
+          id: Date.now().toString(), // Temporary ID for frontend state
+          serialNumber: newSerialNumber,
+          createdAt: data.createdAt || new Date().toISOString(),
+          name: data.name!,
+          phoneNumber: data.phoneNumber!,
+          age: data.age || 0,
+          sex: data.sex as any || 'Male',
+          address: data.address || ''
+        };
+
+        const patientId = await addPatient(patientData);
+
+        if (bookAppointment && patientId) {
+          // 1. Create Appointment
+          await addAppointment({
+            id: Date.now().toString() + "-app",
+            patientId: patientId,
+            patientName: data.name!,
+            date: data.createdAt ? data.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+            time: appointmentTime,
+            purpose: 'New Consultation',
+            assignedStaff: assignedDoctor,
+            status: 'Scheduled'
+          });
+
+          // 2. Create Clinical Record (Treatment)
+          await addTreatment({
+            id: Date.now().toString() + "-trt",
+            patientId: patientId,
+            patientName: data.name!,
+            type: TreatmentType.GENERAL,
+            date: data.createdAt ? data.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+            description: 'New Consultation',
+            amount: consultationFee,
+            paid: 0,
+            due: consultationFee,
+            doctorName: assignedDoctor
+          });
+        }
+
+        toast.success(bookAppointment ? 'Registration & Appointment Successful!' : 'Patient Registered Successfully!', { id: loadingToast });
+        setShowAddModal(false);
+      } catch (error: any) {
+        console.error("Registration error:", error);
+        toast.error(error.message || 'Failed to register patient. Please try again.', { id: loadingToast });
+        // Don't close modal on error
+      }
     }
-    setShowAddModal(false);
   };
 
   return (
@@ -80,10 +134,10 @@ export const Patients: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredPatients.map(patient => {
-                const ptTreatments = treatments.filter(t => t.patientId === patient.id);
-                const totalBilled = ptTreatments.reduce((sum, t) => sum + t.amount, 0);
-                const totalPaid = ptTreatments.reduce((sum, t) => sum + t.paid, 0);
+              {filteredPatients.map((patient: Patient) => {
+                const ptTreatments = treatments.filter((t: any) => t.patientId === patient.id);
+                const totalBilled = ptTreatments.reduce((sum: number, t: any) => sum + t.amount, 0);
+                const totalPaid = ptTreatments.reduce((sum: number, t: any) => sum + t.paid, 0);
                 const totalDue = totalBilled - totalPaid;
 
                 return (

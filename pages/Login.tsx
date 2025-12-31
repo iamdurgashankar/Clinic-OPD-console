@@ -31,9 +31,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 console.log('Backend unreachable or error, falling back to local demo mode');
                 // Fallback for demo/offline mode
                 setTimeout(() => {
-                    if (username === 'admin' && password === 'admin') {
+                    if (username === 'admin@rajtrudent.com' && password === 'iamdsdm@Rajtruedent2025') {
                         toast.success('Welcome back, admin! (Offline Mode)');
-                        onLogin({ id: 'demo-admin', username: 'admin', role: 'admin', displayName: 'admin' });
+                        onLogin({ id: 'demo-admin', username: 'admin@rajtrudent.com', role: 'admin', displayName: 'admin' });
                     } else {
                         toast.error('Invalid credentials (Offline Mode).');
                         setIsLoading(false);

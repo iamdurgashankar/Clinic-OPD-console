@@ -23,8 +23,9 @@ $pdo = getDB();
 
 try {
     // Check if username is already taken by another user
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
-    $stmt->execute([$data['username'], $data['id']]);
+    // We use CAST or prepared statement strictly to avoid numeric conversion issues if ID is a string
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username AND id != :id");
+    $stmt->execute(['username' => $data['username'], 'id' => $data['id']]);
     if ($stmt->fetch()) {
         http_response_code(400);
         echo json_encode(["error" => "Username already taken"]);
@@ -45,14 +46,28 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 
-    echo json_encode([
-        "message" => "Profile updated successfully",
-        "user" => [
-            "id" => $data['id'],
-            "username" => $data['username'],
-            "displayName" => $data['displayName'] ?? $data['username']
-        ]
-    ]);
+    // Fetch updated user info to return complete object
+    $stmt = $pdo->prepare("SELECT id, username, role, display_name as displayName FROM users WHERE id = ?");
+    $stmt->execute([$data['id']]);
+    $updatedUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($updatedUser) {
+        echo json_encode([
+            "message" => "Profile updated successfully",
+            "user" => $updatedUser
+        ]);
+    } else {
+        // Fallback for demo IDs or if record not found
+        echo json_encode([
+            "message" => "Profile updated successfully (Offline/Demo)",
+            "user" => [
+                "id" => $data['id'],
+                "username" => $data['username'],
+                "displayName" => $data['displayName'] ?? $data['username'],
+                "role" => "admin" // Default
+            ]
+        ]);
+    }
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(["error" => "Database error: " . $e->getMessage()]);

@@ -32,15 +32,15 @@ try {
     echo "Staff table checked/created.<br>";
 
     // Insert default admin if not exists
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = 'admin'");
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = 'admin@rajtrudent.com'");
     $stmt->execute();
     if ($stmt->fetchColumn() == 0) {
-        // Default password 'admin'
-        $hash = password_hash('admin', PASSWORD_DEFAULT);
-        $pdo->exec("INSERT INTO users (username, password_hash, role, display_name) VALUES ('admin', '$hash', 'admin', 'admin')");
+        // New admin details
+        $hash = password_hash('iamdsdm@Rajtruedent2025', PASSWORD_DEFAULT);
+        $pdo->exec("INSERT INTO users (username, password_hash, role, display_name) VALUES ('admin@rajtrudent.com', '$hash', 'admin', 'admin')");
         echo "Default admin user created.<br>";
     } else {
-        $pdo->exec("UPDATE users SET display_name = 'admin' WHERE username = 'admin' AND (display_name IS NULL OR display_name = 'Dr. Raj')");
+        $pdo->exec("UPDATE users SET display_name = 'admin' WHERE username = 'admin@rajtrudent.com' AND (display_name IS NULL OR display_name = 'Dr. Raj')");
     }
 
     // Patients Table
