@@ -2,7 +2,7 @@
 // Database Configuration
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'u180145459_rajopdconsole');
-define('DB_USER', 'root');
+define('DB_USER', 'u180145459_rajopdconsole');
 define('DB_PASS', 'iamdsdm@Rajtruedent2025');
 
 // Reporting Configuration
