@@ -17,9 +17,10 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     try {
         $stmt = $pdo->query("
-            SELECT p.*, pt.name as patient_name 
+            SELECT p.*, pt.name as patient_name, t.type as treatment_type
             FROM payments p 
             LEFT JOIN patients pt ON p.patient_id = pt.id 
+            LEFT JOIN treatments t ON p.treatment_id = t.id
             ORDER BY p.date DESC
         ");
         $payments = $stmt->fetchAll();
@@ -29,6 +30,8 @@ if ($method === 'GET') {
                 'id' => $p['id'],
                 'patientId' => $p['patient_id'],
                 'patientName' => $p['patient_name'],
+                'treatmentId' => $p['treatment_id'],
+                'treatmentType' => $p['treatment_type'],
                 'date' => $p['date'],
                 'amount' => (float) $p['amount'],
                 'mode' => $p['mode'],
@@ -51,10 +54,11 @@ if ($method === 'GET') {
     }
 
     try {
-        $sql = "INSERT INTO payments (patient_id, date, amount, mode, notes) VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO payments (patient_id, treatment_id, date, amount, mode, notes) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['patientId'],
+            $data['treatmentId'] ?? null,
             $data['date'] ?? date('Y-m-d H:i:s'),
             $data['amount'],
             $data['mode'] ?? 'Cash',

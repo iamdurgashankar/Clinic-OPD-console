@@ -85,6 +85,7 @@ export interface PaymentTransaction {
   id: string;
   patientId: string;
   treatmentId?: string;
+  treatmentType?: string; // New field from backend
   date: string;
   amount: number;
   mode: PaymentMode;

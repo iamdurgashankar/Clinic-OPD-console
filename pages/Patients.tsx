@@ -166,7 +166,7 @@ export const Patients: React.FC = () => {
                           <span className="text-green-600">₹{totalPaid}</span>
                         </div>
                         <div className={`mt-1 rounded px-2 py-0.5 text-center text-xs font-bold ${totalDue > 0 ? 'bg-red-50 text-red-600' : 'bg-teal-50 text-teal-600'}`}>
-                          {totalDue > 0 ? `Due: ₹${totalDue}` : 'Settled'}
+                          {totalDue > 0 ? `Due: ₹${totalDue}` : 'Due Completed'}
                         </div>
                       </div>
                     </td>

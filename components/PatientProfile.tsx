@@ -66,7 +66,8 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
   const [paymentForm, setPaymentForm] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: 0,
-    mode: PaymentMode.CASH as PaymentMode
+    mode: PaymentMode.CASH as PaymentMode,
+    treatmentId: ''
   });
 
   const patientTreatments = getPatientTreatments(patient.id);
@@ -118,11 +119,12 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
 
   const handleRecordPayment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (paymentForm.amount <= 0) return;
+    if (paymentForm.amount <= 0 || !paymentForm.treatmentId) return;
 
     addPayment({
       id: Date.now().toString(),
       patientId: patient.id,
+      treatmentId: paymentForm.treatmentId,
       date: paymentForm.date,
       amount: paymentForm.amount,
       mode: paymentForm.mode
@@ -131,7 +133,8 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
     setPaymentForm({
       date: new Date().toISOString().split('T')[0],
       amount: 0,
-      mode: PaymentMode.CASH
+      mode: PaymentMode.CASH,
+      treatmentId: ''
     });
   };
 
@@ -462,7 +465,7 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
                           {t.due > 0 ? (
                             <div className="mt-1 font-bold text-red-600">Due: ₹{t.due}</div>
                           ) : (
-                            <div className="mt-1 flex items-center justify-end gap-1 font-bold text-green-600"><CheckCircle size={12} /> Paid</div>
+                            <div className="mt-1 flex items-center justify-end gap-1 font-bold text-green-600"><CheckCircle size={12} /> Due Completed</div>
                           )}
                         </div>
                       </div>
@@ -567,49 +570,80 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
                   <h4 className="mb-4 flex items-center gap-2 font-bold text-teal-800">
                     <DollarSign size={18} /> Record New Payment
                   </h4>
-                  <form onSubmit={handleRecordPayment} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Date</label>
-                      <DatePicker
-                        value={paymentForm.date}
-                        onChange={(d) => setPaymentForm({ ...paymentForm, date: d })}
-                        required
-                      />
+                  <form onSubmit={handleRecordPayment} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">Date</label>
+                        <DatePicker
+                          value={paymentForm.date}
+                          onChange={(d) => setPaymentForm({ ...paymentForm, date: d })}
+                          required
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">Amount (₹)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          className={inputClass}
+                          value={paymentForm.amount || ''}
+                          onChange={e => setPaymentForm({ ...paymentForm, amount: +e.target.value })}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">Mode</label>
+                        <select
+                          className={inputClass}
+                          value={paymentForm.mode}
+                          onChange={e => setPaymentForm({ ...paymentForm, mode: e.target.value as PaymentMode })}
+                        >
+                          <option value={PaymentMode.CASH}>Cash</option>
+                          <option value={PaymentMode.ONLINE}>Online / UPI</option>
+                          <option value={PaymentMode.INSURANCE}>Insurance</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Amount (₹)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        className={inputClass}
-                        value={paymentForm.amount || ''}
-                        onChange={e => setPaymentForm({ ...paymentForm, amount: +e.target.value })}
-                        placeholder="0.00"
-                      />
+
+                    <div className="flex flex-col sm:flex-row gap-4 items-end">
+                      <div className="flex-[2]">
+                        <label className="mb-1 block text-xs font-semibold text-gray-600">Allocate to Treatment <span className="text-red-500">*</span></label>
+                        <select
+                          className={inputClass}
+                          value={paymentForm.treatmentId}
+                          onChange={e => setPaymentForm({ ...paymentForm, treatmentId: e.target.value })}
+                          required
+                        >
+                          <option value="">-- Select Treatment --</option>
+                          {patientTreatments.filter(t => t.due > 0).map(t => (
+                            <option key={t.id} value={t.id}>
+                              {t.date} - {t.type} (Due: ₹{t.due})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <button
+                          type="submit"
+                          disabled={!paymentForm.treatmentId || paymentForm.amount <= 0 || !patientTreatments.some(t => t.due > 0)}
+                          className="w-full rounded-xl bg-teal-600 px-6 py-2.5 font-bold text-white shadow hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Add Payment
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Mode</label>
-                      <select
-                        className={inputClass}
-                        value={paymentForm.mode}
-                        onChange={e => setPaymentForm({ ...paymentForm, mode: e.target.value as PaymentMode })}
-                      >
-                        <option value={PaymentMode.CASH}>Cash</option>
-                        <option value={PaymentMode.ONLINE}>Online / UPI</option>
-                        <option value={PaymentMode.INSURANCE}>Insurance</option>
-                      </select>
-                    </div>
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-teal-600 px-6 py-2.5 font-bold text-white shadow hover:bg-teal-700 transition-colors"
-                    >
-                      Add Payment
-                    </button>
                   </form>
-                  <p className="mt-2 text-xs text-gray-500">
-                    * This payment will automatically be allocated to the oldest unpaid treatments.
-                  </p>
+                  {patientTreatments.filter(t => t.due > 0).length === 0 && (
+                    <p className="mt-2 text-xs text-amber-600 font-medium">
+                      * No outstanding treatments found. Please add a treatment first.
+                    </p>
+                  )}
+                  {patientTreatments.filter(t => t.due > 0).length > 0 && !paymentForm.treatmentId && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      * Please select a treatment to allocate this payment to.
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -632,7 +666,7 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
                               <td className="px-4 py-3 font-medium text-gray-900">{t.type}</td>
                               <td className="px-4 py-3 text-right font-medium">₹{t.amount}</td>
                               <td className="px-4 py-3 text-right">
-                                {t.due > 0 ? <span className="text-red-600 font-bold">₹{t.due}</span> : <span className="text-green-600 text-xs">Paid</span>}
+                                {t.due > 0 ? <span className="text-red-600 font-bold">₹{t.due}</span> : <span className="text-green-600 text-xs text-right block w-full">Due Completed</span>}
                               </td>
                             </tr>
                           ))}
@@ -649,24 +683,31 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
                         <thead className="bg-gray-50 text-xs font-bold uppercase text-gray-500">
                           <tr>
                             <th className="px-4 py-3">Date</th>
+                            <th className="px-4 py-3">Service</th>
                             <th className="px-4 py-3">Mode</th>
                             <th className="px-4 py-3 text-right">Amount</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {patientPayments.map(p => (
-                            <tr key={p.id}>
-                              <td className="px-4 py-3 text-gray-500">{p.date}</td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${p.mode === 'Cash' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                  {p.mode}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right font-bold text-gray-900">₹{p.amount}</td>
-                            </tr>
-                          ))}
-                          {patientPayments.length === 0 && <tr><td colSpan={3} className="py-4 text-center text-gray-500">No payments recorded.</td></tr>}
+                          {patientPayments.map(p => {
+                            const treatment = patientTreatments.find(t => t.id === p.treatmentId);
+                            return (
+                              <tr key={p.id}>
+                                <td className="px-4 py-3 text-gray-500">{p.date}</td>
+                                <td className="px-4 py-3 text-gray-900 font-medium">
+                                  {treatment?.type || p.treatmentType || 'General Payment'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${p.mode === 'Cash' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                                    }`}>
+                                    {p.mode}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right font-bold text-gray-900">₹{p.amount}</td>
+                              </tr>
+                            );
+                          })}
+                          {patientPayments.length === 0 && <tr><td colSpan={4} className="py-4 text-center text-gray-500">No payments recorded.</td></tr>}
                         </tbody>
                       </table>
                     </div>
@@ -740,11 +781,23 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <input type="number" placeholder="Total Cost" className={inputClass}
-                  value={newTreatment.amount || ''} onChange={e => setNewTreatment({ ...newTreatment, amount: +e.target.value })} />
-                <input type="number" placeholder="Paid Today" className={inputClass}
-                  value={newTreatment.paid || ''} onChange={e => setNewTreatment({ ...newTreatment, paid: +e.target.value })} />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Total Amount</label>
+                  <input type="number" placeholder="0" className={inputClass}
+                    value={newTreatment.amount || ''} onChange={e => setNewTreatment({ ...newTreatment, amount: +e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Paid Amount</label>
+                  <input type="number" placeholder="0" className={inputClass}
+                    value={newTreatment.paid || ''} onChange={e => setNewTreatment({ ...newTreatment, paid: +e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Pending Due</label>
+                  <div className="flex h-[42px] items-center rounded-xl border border-gray-200 bg-gray-50 px-4 font-bold text-red-600">
+                    ₹{(newTreatment.amount || 0) - (newTreatment.paid || 0)}
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setShowTreatmentForm(false)} className="rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-100">Cancel</button>

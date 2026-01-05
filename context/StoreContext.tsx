@@ -170,45 +170,48 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const addPayment = async (p: PaymentTransaction): Promise<string> => {
     try {
       const res = await api.createPayment(p);
-      setPayments(prev => [...prev, { ...p, id: res.id }]);
+      const paymentWithId = { ...p, id: res.id };
 
-      // Auto-allocation logic
-      let remaining = p.amount;
-      if (remaining <= 0) return res.id;
+      // Update payments state using functional update
+      setPayments(prev => [...prev, paymentWithId]);
 
-      const patientTreatments = treatments
-        .filter(t => t.patientId === p.patientId && t.due > 0)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Handle Treatment Allocation
+      if (p.treatmentId) {
+        // Find the treatment in the current state to calculate the updated record
+        const treatmentToUpdate = treatments.find(t => t.id === p.treatmentId);
 
-      if (patientTreatments.length > 0) {
-        const updatedTreatments = [...treatments];
+        if (treatmentToUpdate) {
+          const currentPaid = Number(treatmentToUpdate.paid) || 0;
+          const treatmentTotal = Number(treatmentToUpdate.amount) || 0;
+          const paymentAmount = Number(p.amount) || 0;
 
-        for (const treatment of patientTreatments) {
-          if (remaining <= 0) break;
+          const newPaid = currentPaid + paymentAmount;
+          let newDue = treatmentTotal - newPaid;
+          if (newDue < 0) newDue = 0;
 
-          const index = updatedTreatments.findIndex(ut => ut.id === treatment.id);
-          if (index !== -1) {
-            const record = updatedTreatments[index];
-            const deduct = Math.min(record.due, remaining);
+          const updatedRecord = {
+            ...treatmentToUpdate,
+            paid: newPaid,
+            due: newDue
+          };
 
-            const newRecord = {
-              ...record,
-              paid: record.paid + deduct,
-              due: record.due - deduct
-            };
+          // Sync treatment update to backend - await this for data consistency
+          await api.updateTreatment(updatedRecord);
 
-            // Update in backend
-            await api.updateTreatment(newRecord);
-
-            updatedTreatments[index] = newRecord;
-            remaining -= deduct;
-          }
+          // Update local state reactively
+          setTreatments(prevTreatments =>
+            prevTreatments.map(t => t.id === p.treatmentId ? updatedRecord : t)
+          );
+        } else {
+          console.warn("Target treatment not found in state for allocation.");
         }
-        setTreatments(updatedTreatments);
+      } else {
+        console.warn("Payment added without specific treatment ID. No allocation performed.");
       }
+
       return res.id;
     } catch (error) {
-      console.error("Failed to add payment", error);
+      console.error("Failed to add payment:", error);
       return '';
     }
   };
