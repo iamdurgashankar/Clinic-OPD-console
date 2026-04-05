@@ -45,6 +45,23 @@ export const Appointments: React.FC = () => {
     setReminderDraft({ id: app.id, text });
   };
 
+  const handleWhatsAppSend = (patientId: string, message: string) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient?.phoneNumber) {
+      alert("Patient phone number not found!");
+      return;
+    }
+
+    // Clean phone number: remove any non-numeric characters e.g. spaces, hyphens
+    const cleanNumber = patient.phoneNumber.replace(/\D/g, '');
+
+    // Construct WhatsApp URL
+    // Format: https://wa.me/number?text=URLEncodedText
+    const waUrl = `https://wa.me/${cleanNumber.startsWith('91') ? cleanNumber : '91' + cleanNumber}?text=${encodeURIComponent(message)}`;
+
+    window.open(waUrl, '_blank');
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       {/* Calendar & Form Column */}
@@ -151,14 +168,29 @@ export const Appointments: React.FC = () => {
                     <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
                       <p className="mb-2 text-xs font-bold text-indigo-400">AI GENERATED DRAFT:</p>
                       <p className="text-sm text-gray-800">{reminderDraft.text}</p>
-                      <div className="mt-2 flex gap-2">
-                        <button className="text-xs font-bold text-indigo-600 hover:underline">Copy to Clipboard</button>
-                        <button onClick={() => setReminderDraft(null)} className="text-xs text-gray-400 hover:text-gray-600">Dismiss</button>
+                      <div className="mt-2 flex gap-4">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(reminderDraft.text);
+                            alert('Copied to clipboard!');
+                          }}
+                          className="text-xs font-bold text-indigo-600 hover:underline"
+                        >
+                          Copy to Clipboard
+                        </button>
+                        <button
+                          onClick={() => handleWhatsAppSend(app.patientId, reminderDraft.text)}
+                          className="text-xs font-bold text-teal-600 hover:underline flex items-center gap-1"
+                        >
+                          Send via WhatsApp
+                        </button>
+                        <button onClick={() => setReminderDraft(null)} className="text-xs text-gray-400 hover:text-gray-600 ml-auto">Dismiss</button>
                       </div>
                     </div>
                   )}
                 </div>
               ))}
+
             {dailyAppointments.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                 <CalIcon size={48} className="mb-2 opacity-20" />

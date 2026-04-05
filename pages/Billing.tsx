@@ -9,6 +9,7 @@ import {
 import { useStore } from '../context/StoreContext';
 import { api } from '../services/api';
 import { BillingSummary, Expense, PaymentMode } from '../types';
+import { DatePicker } from '../components/DatePicker';
 
 export const Billing: React.FC = () => {
     const { payments, expenses, addExpense, updateExpense, deleteExpense, treatments, patients } = useStore();
@@ -16,6 +17,7 @@ export const Billing: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'overview' | 'income' | 'expenses'>('overview');
     const [showAddExpense, setShowAddExpense] = useState(false);
     const [filterType, setFilterType] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -30,12 +32,36 @@ export const Billing: React.FC = () => {
 
     useEffect(() => {
         fetchSummary();
-    }, [filterType, payments, expenses]);
+    }, [filterType, selectedDate, payments, expenses]);
+
+    const getDateRange = () => {
+        const date = new Date(selectedDate);
+        let start = '';
+        let end = '';
+
+        if (filterType === 'daily') {
+            start = selectedDate;
+            end = selectedDate;
+        } else if (filterType === 'monthly') {
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            start = firstDay.toISOString().split('T')[0];
+            end = lastDay.toISOString().split('T')[0];
+        } else if (filterType === 'yearly') {
+            const firstDay = new Date(date.getFullYear(), 0, 1);
+            const lastDay = new Date(date.getFullYear(), 11, 31);
+            start = firstDay.toISOString().split('T')[0];
+            end = lastDay.toISOString().split('T')[0];
+        }
+
+        return { start, end };
+    };
 
     const fetchSummary = async () => {
         setLoading(true);
         try {
-            const res = await api.getBillingSummary();
+            const { start, end } = getDateRange();
+            const res = await api.getBillingSummary({ start, end });
             setSummary(res);
         } catch (error) {
             console.error("Failed to fetch billing summary", error);
@@ -43,6 +69,10 @@ export const Billing: React.FC = () => {
             setLoading(false);
         }
     };
+
+    const { start: rangeStart, end: rangeEnd } = getDateRange();
+    const filteredPayments = payments.filter(p => p.date >= rangeStart && p.date <= rangeEnd);
+    const filteredExpenses = expenses.filter(e => e.date >= rangeStart && e.date <= rangeEnd);
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,6 +134,13 @@ export const Billing: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <div className="w-48">
+                        <DatePicker
+                            value={selectedDate}
+                            onChange={setSelectedDate}
+                        />
+                    </div>
+
                     <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value as any)}
@@ -277,7 +314,7 @@ export const Billing: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {payments.slice(0, 50).map((pay) => (
+                                    {filteredPayments.slice(0, 50).map((pay) => (
                                         <tr key={pay.id} className="group hover:bg-slate-50 transition-colors">
                                             <td className="py-4 text-sm font-bold text-slate-600">{pay.date}</td>
                                             <td className="py-4 text-sm font-black text-slate-800">{pay.patientName || 'Clinical Patient'}</td>
@@ -321,7 +358,7 @@ export const Billing: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {expenses.map((exp) => (
+                                        {filteredExpenses.map((exp) => (
                                             <tr key={exp.id} className="group hover:bg-slate-50 transition-colors">
                                                 <td className="py-4 text-sm font-bold text-slate-600">{exp.date}</td>
                                                 <td className="py-4 text-sm font-black text-slate-800">{exp.recipientName}</td>

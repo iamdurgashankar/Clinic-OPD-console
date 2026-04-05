@@ -14,6 +14,7 @@ import { Menu, Bell, User as UserIcon, LogOut, ChevronDown } from 'lucide-react'
 import { useStore } from './context/StoreContext';
 import { NotificationsPanel } from './components/NotificationsPanel';
 import { ProfileModal } from './components/ProfileModal';
+import { SubscriptionPopup } from './components/SubscriptionPopup';
 
 // Simple Router Component since we can't use react-router-dom in this environment easily
 const Router = ({ onLogout, user, onUpdateUser }: { onLogout: () => void, user: User | null, onUpdateUser: (u: User) => void }) => {
@@ -224,7 +225,10 @@ const AppContent = () => {
   }
 
   return (
-    <Router onLogout={handleLogout} user={user} onUpdateUser={handleUpdateUser} />
+    <>
+      <Router onLogout={handleLogout} user={user} onUpdateUser={handleUpdateUser} />
+      <SubscriptionPopup />
+    </>
   );
 };
 
