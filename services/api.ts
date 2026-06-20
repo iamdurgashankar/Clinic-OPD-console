@@ -1,10 +1,43 @@
 const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_URL = isDev ? 'http://localhost:8000/api' : '/backend/api';
 
+const fetcher = async (url: string, options: any = {}) => {
+    const response = await fetch(url, options);
+    
+    // Detect hard lockdown from server via custom header or status code
+    const isLocked = response.headers.get('X-App-Locked') === 'true' || response.status === 402;
+    
+    if (isLocked) {
+        localStorage.setItem('app_hard_locked', 'true');
+        window.dispatchEvent(new Event('app_lockdown_status_changed'));
+    } else {
+        // If we get a clean response from our API without the lock header, 
+        // it means the lockdown has been lifted.
+        if (url.includes(API_URL)) {
+             localStorage.removeItem('app_hard_locked');
+             window.dispatchEvent(new Event('app_lockdown_status_changed'));
+        }
+    }
+    
+    return response;
+};
+
 export const api = {
+    checkStatus: async () => {
+        try {
+            // Explicitly call login.php (or any backend file) to check for lockdown headers
+            // Use a cache-busting query parameter to ensure we get fresh results
+            await fetcher(`${API_URL}/login.php?t=${Date.now()}`);
+            return localStorage.getItem('app_hard_locked') === 'true';
+        } catch (error) {
+            console.error('Lockdown check failed', error);
+            return false;
+        }
+    },
+
     login: async (credentials: { username: string; password: string }) => {
         try {
-            const response = await fetch(`${API_URL}/login.php`, {
+            const response = await fetcher(`${API_URL}/login.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(credentials),
@@ -21,7 +54,7 @@ export const api = {
 
     getPatients: async () => {
         try {
-            const response = await fetch(`${API_URL}/patients.php`);
+            const response = await fetcher(`${API_URL}/patients.php`);
             if (!response.ok) throw new Error('Failed to fetch patients');
             return response.json();
         } catch (error) {
@@ -32,7 +65,7 @@ export const api = {
 
     createPatient: async (patient: any) => {
         try {
-            const response = await fetch(`${API_URL}/patients.php`, {
+            const response = await fetcher(`${API_URL}/patients.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(patient),
@@ -49,7 +82,7 @@ export const api = {
 
     updatePatient: async (patient: any) => {
         try {
-            const response = await fetch(`${API_URL}/patients.php`, {
+            const response = await fetcher(`${API_URL}/patients.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(patient),
@@ -63,7 +96,7 @@ export const api = {
 
     deletePatient: async (id: string) => {
         try {
-            const response = await fetch(`${API_URL}/patients.php?id=${id}`, {
+            const response = await fetcher(`${API_URL}/patients.php?id=${id}`, {
                 method: 'DELETE',
             });
             if (!response.ok) throw new Error('Failed to delete patient');
@@ -76,7 +109,7 @@ export const api = {
     // Appointments
     getAppointments: async () => {
         try {
-            const response = await fetch(`${API_URL}/appointments.php`);
+            const response = await fetcher(`${API_URL}/appointments.php`);
             if (!response.ok) throw new Error('Failed to fetch appointments');
             return response.json();
         } catch (error) {
@@ -87,7 +120,7 @@ export const api = {
 
     createAppointment: async (appointment: any) => {
         try {
-            const response = await fetch(`${API_URL}/appointments.php`, {
+            const response = await fetcher(`${API_URL}/appointments.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appointment),
@@ -101,7 +134,7 @@ export const api = {
 
     updateAppointment: async (appointment: any) => {
         try {
-            const response = await fetch(`${API_URL}/appointments.php`, {
+            const response = await fetcher(`${API_URL}/appointments.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appointment),
@@ -119,7 +152,7 @@ export const api = {
 
     deleteAppointment: async (id: string) => {
         try {
-            const response = await fetch(`${API_URL}/appointments.php?id=${id}`, {
+            const response = await fetcher(`${API_URL}/appointments.php?id=${id}`, {
                 method: 'DELETE',
             });
             if (!response.ok) throw new Error('Failed to delete appointment');
@@ -132,7 +165,7 @@ export const api = {
     // Treatments
     getTreatments: async () => {
         try {
-            const response = await fetch(`${API_URL}/treatments.php`);
+            const response = await fetcher(`${API_URL}/treatments.php`);
             if (!response.ok) throw new Error('Failed to fetch treatments');
             return response.json();
         } catch (error) {
@@ -143,7 +176,7 @@ export const api = {
 
     createTreatment: async (treatment: any) => {
         try {
-            const response = await fetch(`${API_URL}/treatments.php`, {
+            const response = await fetcher(`${API_URL}/treatments.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(treatment),
@@ -157,7 +190,7 @@ export const api = {
 
     updateTreatment: async (treatment: any) => {
         try {
-            const response = await fetch(`${API_URL}/treatments.php`, {
+            const response = await fetcher(`${API_URL}/treatments.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(treatment),
@@ -172,7 +205,7 @@ export const api = {
     // Payments
     getPayments: async () => {
         try {
-            const response = await fetch(`${API_URL}/payments.php`);
+            const response = await fetcher(`${API_URL}/payments.php`);
             if (!response.ok) throw new Error('Failed to fetch payments');
             return response.json();
         } catch (error) {
@@ -183,7 +216,7 @@ export const api = {
 
     createPayment: async (payment: any) => {
         try {
-            const response = await fetch(`${API_URL}/payments.php`, {
+            const response = await fetcher(`${API_URL}/payments.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payment),
@@ -198,7 +231,7 @@ export const api = {
     // Expenses
     getExpenses: async () => {
         try {
-            const response = await fetch(`${API_URL}/expenses.php`);
+            const response = await fetcher(`${API_URL}/expenses.php`);
             if (!response.ok) throw new Error('Failed to fetch expenses');
             return response.json();
         } catch (error) {
@@ -209,7 +242,7 @@ export const api = {
 
     createExpense: async (expense: any) => {
         try {
-            const response = await fetch(`${API_URL}/expenses.php`, {
+            const response = await fetcher(`${API_URL}/expenses.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(expense),
@@ -223,7 +256,7 @@ export const api = {
 
     updateExpense: async (expense: any) => {
         try {
-            const response = await fetch(`${API_URL}/expenses.php`, {
+            const response = await fetcher(`${API_URL}/expenses.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(expense),
@@ -237,7 +270,7 @@ export const api = {
 
     deleteExpense: async (id: string) => {
         try {
-            const response = await fetch(`${API_URL}/expenses.php?id=${id}`, {
+            const response = await fetcher(`${API_URL}/expenses.php?id=${id}`, {
                 method: 'DELETE',
             });
             if (!response.ok) throw new Error('Failed to delete expense');
@@ -253,7 +286,7 @@ export const api = {
             if (params?.start && params?.end) {
                 url += `?start=${params.start}&end=${params.end}`;
             }
-            const response = await fetch(url);
+            const response = await fetcher(url);
             if (!response.ok) throw new Error('Failed to fetch billing summary');
             return response.json();
         } catch (error) {
@@ -264,7 +297,7 @@ export const api = {
 
     sendBillingReport: async (data: { summary: any; dateRange: string }) => {
         try {
-            const response = await fetch(`${API_URL}/send_billing_report.php`, {
+            const response = await fetcher(`${API_URL}/send_billing_report.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
@@ -279,7 +312,7 @@ export const api = {
     // Staff Management
     getStaff: async () => {
         try {
-            const response = await fetch(`${API_URL}/staff.php`);
+            const response = await fetcher(`${API_URL}/staff.php`);
             if (!response.ok) throw new Error('Failed to fetch staff');
             return response.json();
         } catch (error) {
@@ -290,7 +323,7 @@ export const api = {
 
     createStaff: async (staff: any) => {
         try {
-            const response = await fetch(`${API_URL}/staff.php`, {
+            const response = await fetcher(`${API_URL}/staff.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(staff),
@@ -304,7 +337,7 @@ export const api = {
 
     updateStaff: async (staff: any) => {
         try {
-            const response = await fetch(`${API_URL}/staff.php`, {
+            const response = await fetcher(`${API_URL}/staff.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(staff),
@@ -318,7 +351,7 @@ export const api = {
 
     deleteStaff: async (id: string) => {
         try {
-            const response = await fetch(`${API_URL}/staff.php?id=${id}`, {
+            const response = await fetcher(`${API_URL}/staff.php?id=${id}`, {
                 method: 'DELETE',
             });
             if (!response.ok) throw new Error('Failed to delete staff');
@@ -331,7 +364,7 @@ export const api = {
     // User ID Management
     getUsers: async () => {
         try {
-            const response = await fetch(`${API_URL}/users.php`);
+            const response = await fetcher(`${API_URL}/users.php`);
             if (!response.ok) throw new Error('Failed to fetch users');
             return response.json();
         } catch (error) {
@@ -342,7 +375,7 @@ export const api = {
 
     createUser: async (user: any) => {
         try {
-            const response = await fetch(`${API_URL}/users.php`, {
+            const response = await fetcher(`${API_URL}/users.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(user),
@@ -359,7 +392,7 @@ export const api = {
 
     deleteUser: async (id: string) => {
         try {
-            const response = await fetch(`${API_URL}/users.php?id=${id}`, {
+            const response = await fetcher(`${API_URL}/users.php?id=${id}`, {
                 method: 'DELETE',
             });
             if (!response.ok) throw new Error('Failed to delete user');
@@ -373,7 +406,7 @@ export const api = {
     getNotifications: async (userId?: string) => {
         const url = userId ? `${API_URL}/notifications.php?userId=${userId}` : `${API_URL}/notifications.php`;
         try {
-            const response = await fetch(url);
+            const response = await fetcher(url);
             if (!response.ok) throw new Error('Failed to fetch notifications');
             return response.json();
         } catch (error) {
@@ -383,7 +416,7 @@ export const api = {
     },
     createNotification: async (notif: any) => {
         try {
-            const response = await fetch(`${API_URL}/notifications.php`, {
+            const response = await fetcher(`${API_URL}/notifications.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(notif)
@@ -396,7 +429,7 @@ export const api = {
     },
     markNotificationRead: async (id: string) => {
         try {
-            const response = await fetch(`${API_URL}/notifications.php`, {
+            const response = await fetcher(`${API_URL}/notifications.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, isRead: true })
@@ -410,7 +443,7 @@ export const api = {
 
     updateProfile: async (userData: { id: string, username: string, displayName?: string, password?: string }) => {
         try {
-            const response = await fetch(`${API_URL}/update_profile.php`, {
+            const response = await fetcher(`${API_URL}/update_profile.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(userData)

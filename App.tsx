@@ -15,6 +15,8 @@ import { useStore } from './context/StoreContext';
 import { NotificationsPanel } from './components/NotificationsPanel';
 import { ProfileModal } from './components/ProfileModal';
 import { SubscriptionPopup } from './components/SubscriptionPopup';
+import { api } from './services/api';
+import { AlertCircle, ShieldAlert, Mail } from 'lucide-react';
 
 // Simple Router Component since we can't use react-router-dom in this environment easily
 const Router = ({ onLogout, user, onUpdateUser }: { onLogout: () => void, user: User | null, onUpdateUser: (u: User) => void }) => {
@@ -176,21 +178,106 @@ const Router = ({ onLogout, user, onUpdateUser }: { onLogout: () => void, user: 
   );
 };
 
+const LockdownScreen = () => (
+  <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-slate-900/40 p-6 text-center backdrop-blur-md transition-all duration-700 animate-in fade-in">
+    <div className="relative w-full max-w-sm space-y-6 rounded-2xl border border-white/40 bg-white/95 p-8 shadow-2xl animate-in zoom-in-95 duration-500">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600 ring-4 ring-red-50">
+        <ShieldAlert size={32} className="animate-bounce" />
+      </div>
+      
+      <div className="space-y-3">
+        <h2 className="text-2xl font-black tracking-tight text-slate-900 leading-tight">Renewal Required</h2>
+        <div className="h-1 w-12 bg-red-500 mx-auto rounded-full" />
+        <p className="text-sm text-slate-600 leading-relaxed font-semibold px-2">
+          Your subscription for Raj True Dent clinical console has expired. Interaction is now restricted.
+        </p>
+      </div>
+
+      <a 
+        href="mailto:admin@rajtruedent.com?subject=Clinic%20App%20Renewal%20Required"
+        className="flex w-full items-center justify-center gap-3 rounded-xl bg-slate-900 px-6 py-3.5 text-sm font-bold text-white shadow-xl hover:bg-black active:scale-[0.98] transition-all"
+      >
+        <Mail size={18} />
+        Contact Administrator
+      </a>
+      
+      <div className="flex items-center justify-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+          Service: Deactivated
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHardLocked, setIsHardLocked] = useState(false);
+  const [showLockdown, setShowLockdown] = useState(false);
 
   useEffect(() => {
-    // Check for existing session
-    const session = localStorage.getItem('rtd_session');
-    const savedUser = localStorage.getItem('rtd_user');
-    if (session === 'active' && savedUser) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    const initApp = async () => {
+      // 1. Lockdown Handshake
+      const locked = await api.checkStatus();
+      setIsHardLocked(locked);
+
+      // 2. Session Check
+      const session = localStorage.getItem('rtd_session');
+      const savedUser = localStorage.getItem('rtd_user');
+      if (session === 'active' && savedUser) {
+        setIsAuthenticated(true);
+        setUser(JSON.parse(savedUser));
+      }
+      setIsLoading(false);
+    };
+
+    initApp();
+
+    // Lockdown sync across tabs
+    const handleLockStatus = () => {
+      setIsHardLocked(localStorage.getItem('app_hard_locked') === 'true');
+    };
+    window.addEventListener('app_lockdown_status_changed', handleLockStatus);
+    return () => window.removeEventListener('app_lockdown_status_changed', handleLockStatus);
   }, []);
+
+  // Lockdown Timer Logic (5 Minute Grace Period)
+  useEffect(() => {
+    let interval: any;
+
+    if (isAuthenticated && isHardLocked) {
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      
+      // Get or set start time
+      let startTimeStr = localStorage.getItem('rtd_lockdown_grace_start');
+      let startTime = startTimeStr ? parseInt(startTimeStr) : Date.now();
+      
+      if (!startTimeStr) {
+        localStorage.setItem('rtd_lockdown_grace_start', startTime.toString());
+      }
+
+      const checkTime = () => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed >= FIVE_MINUTES) {
+          setShowLockdown(true);
+          clearInterval(interval);
+        }
+      };
+
+      // Check immediately
+      checkTime();
+      // Then every 10 seconds
+      interval = setInterval(checkTime, 10000);
+    } else if (!isHardLocked) {
+      setShowLockdown(false);
+      localStorage.removeItem('rtd_lockdown_grace_start');
+    }
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isHardLocked]);
 
   const handleLogin = (userData: User) => {
     localStorage.setItem('rtd_session', 'active');
@@ -212,22 +299,25 @@ const AppContent = () => {
   };
 
   if (isLoading) {
-    return <div className="flex h-screen items-center justify-center bg-teal-50 text-teal-600 font-bold tracking-widest uppercase">Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <>
-        <Login onLogin={handleLogin} />
-        <Toaster position="top-right" />
-      </>
-    );
+    return <div className="flex h-screen items-center justify-center bg-teal-50 text-teal-600 font-bold tracking-widest uppercase">Initializing...</div>;
   }
 
   return (
     <>
-      <Router onLogout={handleLogout} user={user} onUpdateUser={handleUpdateUser} />
-      <SubscriptionPopup />
+      {!isAuthenticated ? (
+        <>
+          <Login onLogin={handleLogin} />
+          <Toaster position="top-right" />
+        </>
+      ) : (
+        <>
+          <Router onLogout={handleLogout} user={user} onUpdateUser={handleUpdateUser} />
+          {!isHardLocked && <SubscriptionPopup />}
+        </>
+      )}
+      
+      {/* Universal Lockdown Overlay - Appears after 5-minute grace period */}
+      {showLockdown && <LockdownScreen />}
     </>
   );
 };
